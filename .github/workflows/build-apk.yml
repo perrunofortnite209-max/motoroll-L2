@@ -40,6 +40,8 @@ jobs:
           test -f app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q '^package com\.motoroll\.home;' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'public class MainActivity' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'addSquareWeatherWidget' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'class SwipeRootLayout' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
@@ -69,22 +71,17 @@ jobs:
           import os
           import re
           import base64
-          import subprocess
           import sys
 
           raw = os.environ.get("KEYSTORE_BASE64", "")
           if not raw.strip():
               sys.exit("ERROR: Falta KEYSTORE_BASE64.")
 
-          # certutil -encode adds PEM headers and Windows line breaks.
           raw = raw.replace("-----BEGIN CERTIFICATE-----", "")
           raw = raw.replace("-----END CERTIFICATE-----", "")
-          # Keep only Base64 alphabet; remove BOM, whitespace and other formatting.
           clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
           if not clean:
               sys.exit("ERROR: KEYSTORE_BASE64 no contiene datos Base64.")
-
-          # Repair omitted padding without changing the encoded payload.
           clean += "=" * ((-len(clean)) % 4)
 
           try:
@@ -160,12 +157,13 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.9
-          name: Motoroll Home 3.3.9
+          tag_name: v3.3.10
+          name: Motoroll Home 3.3.10
           body: |
-            Motoroll Update Center integrado.
-            Mejora de la detección del gesto vertical para abrir la bóveda, con umbral adaptativo al dispositivo.
-            Instalación de actualizaciones desde el propio launcher.
+            Re-publicación de las mejoras incluidas en el proyecto:
+            - Widget cuadrado del clima: junto al reloj o debajo, con selector de posición.
+            - Detección vertical mejorada para abrir la bóveda.
+            - Se conserva la paginación horizontal y las funciones anteriores.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
           overwrite_files: true
