@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+def motorollStorePath = System.getenv('MOTOROLL_KEYSTORE_PATH')
+def motorollStorePassword = System.getenv('MOTOROLL_KEYSTORE_PASSWORD')
+def motorollKeyAlias = System.getenv('MOTOROLL_KEY_ALIAS')
+def motorollKeyPassword = System.getenv('MOTOROLL_KEY_PASSWORD')
+
+android {
+    namespace 'com.motoroll.home'
+    compileSdk 36
+
+    signingConfigs {
+        release {
+            if (motorollStorePath && motorollStorePassword && motorollKeyAlias && motorollKeyPassword) {
+                storeFile file(motorollStorePath)
+                storePassword motorollStorePassword
+                keyAlias motorollKeyAlias
+                keyPassword motorollKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (motorollStorePath && motorollStorePassword && motorollKeyAlias && motorollKeyPassword) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.motoroll.home'
+        minSdk 26
+        targetSdk 35
+        versionCode 14
+        versionName '3.3.4'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
