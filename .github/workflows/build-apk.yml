@@ -47,7 +47,8 @@ jobs:
           grep -q 'Posición independiente del clima' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'weatherPosition == 2' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'showCustomizationCategory' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'clockSlot.setMinimumWidth' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'clockWeatherFrame' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'weatherParams.setMarginEnd' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
