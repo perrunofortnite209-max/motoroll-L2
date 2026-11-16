@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "3.3.15",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.15/MotorollHome.apk",
-  "releaseNotes": "Se evita que el reloj y el clima ocupen el mismo lado. El selector oculta automáticamente el lado ocupado por el reloj; si mueves el reloj a un lado que ya usa el clima, el clima cambia automáticamente al lado opuesto. Se conservan las preferencias y funciones anteriores."
+  "versionCode": 26,
+  "versionName": "3.3.16",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.16/MotorollHome.apk",
+  "releaseNotes": "Se corrige el recorte del widget pequeño del clima, se mejora la detección del gesto vertical para abrir la bóveda y se reduce el retraso al volver desde aplicaciones: Motoroll ya no vuelve a consultar toda la lista de apps en cada reanudación, solo cuando Android informa que se instaló, eliminó o actualizó una aplicación."
 }
