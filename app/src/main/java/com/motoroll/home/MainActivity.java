@@ -82,7 +82,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Motoroll Home 3.3.6 - compact weather, optional home search and controlled horizontal drawer paging.
+ * Motoroll Home 3.3.11 - customizable weather tile and personal note styling.
  * Native views only: optional on-demand weather, no analytics, no background service, and no third-party UI library.
  * App drawer opens with a downward swipe. Drawer scrolling is handled by its own container;
  * it closes only with the close button or Android Back.
@@ -111,6 +111,9 @@ public class MainActivity extends Activity {
     private static final String PREF_WEATHER_FETCHED = "weather_fetched_at";
     private static final String PREF_WEATHER_STYLE = "weather_style"; // 0 Motoroll, 1 One UI inspired
     private static final String PREF_WEATHER_POSITION = "weather_position"; // 0 below clock, 1 beside clock
+    private static final String PREF_WEATHER_SHAPE = "weather_shape"; // 0 rounded, 1 square, 2 soft-square
+    private static final String PREF_HOME_NOTE_COLOR = "home_note_color";
+    private static final String PREF_HOME_NOTE_SIZE = "home_note_size";
     private static final String PREF_ICON_SHAPE = "icon_shape"; // 0 rounded, 1 circle, 2 square
     private static final String PREF_ANIMATION_MODE = "animation_mode"; // 0 reduced, 1 smooth, 2 relaxed
     private static final String PREF_DATE_VISIBLE = "date_visible";
@@ -1171,12 +1174,14 @@ public class MainActivity extends Activity {
                     "Set weather city · " + city, "Configurar cidade do clima · " + city));
             keys.add("weather_style"); labels.add(tr("Diseño del clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"),
                     "Weather design: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"), "Design do clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI")));
+            keys.add("weather_shape"); labels.add(tr("Forma del widget del clima", "Weather widget shape", "Formato do widget de clima"));
         }
         keys.add("home_search"); labels.add(prefs.getBoolean(PREF_HOME_SEARCH_VISIBLE, false)
                 ? tr("Búsqueda inferior: visible", "Home search bar: visible", "Busca inferior: visível")
                 : tr("Búsqueda inferior: oculta", "Home search bar: hidden", "Busca inferior: oculta"));
         keys.add("widgets"); labels.add(tr("Widgets y elementos de pantalla", "Widgets and home elements", "Widgets e elementos da tela"));
         keys.add("home_note"); labels.add(tr("Nota o bienvenida en pantalla principal", "Home screen note or greeting", "Nota ou saudação na tela inicial"));
+        keys.add("home_note_style"); labels.add(tr("Color y tamaño de la nota", "Note color and size", "Cor e tamanho da nota"));
         keys.add("icon_shape"); labels.add(tr("Forma de los iconos", "Icon shape", "Formato dos ícones"));
         keys.add("animations"); labels.add(tr("Velocidad de animaciones", "Animation speed", "Velocidade das animações"));
         keys.add("hidden_apps"); labels.add(tr("Aplicaciones ocultas", "Hidden apps", "Aplicativos ocultos"));
@@ -1207,9 +1212,11 @@ public class MainActivity extends Activity {
                         case "weather_city": chooseWeatherCity(false); break;
                         case "weather_style": chooseWeatherStyle(); break;
                         case "weather_position": chooseWeatherPosition(); break;
+                        case "weather_shape": chooseWeatherShape(); break;
                         case "home_search": toggleHomeSearch(); break;
                         case "widgets": chooseWidgets(); break;
                         case "home_note": chooseHomeNote(); break;
+                        case "home_note_style": chooseHomeNoteStyle(); break;
                         case "icon_shape": chooseIconShape(); break;
                         case "animations": chooseAnimationMode(); break;
                         case "hidden_apps": chooseHiddenApps(); break;
@@ -1301,6 +1308,44 @@ public class MainActivity extends Activity {
                 .setNeutralButton(tr("Quitar nota", "Clear note", "Limpar nota"), (dialog, which) -> {
                     prefs.edit().remove(PREF_HOME_NOTE).remove(PREF_HOME_NOTE_X).remove(PREF_HOME_NOTE_Y).apply();
                     showHome(true);
+                })
+                .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
+                .show();
+    }
+
+    private void chooseHomeNoteStyle() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String[] colors = {
+                tr("Cian Motoroll", "Motoroll cyan", "Ciano Motoroll"),
+                tr("Blanco", "White", "Branco"),
+                tr("Azul eléctrico", "Electric blue", "Azul elétrico"),
+                tr("Violeta", "Violet", "Violeta"),
+                tr("Verde", "Green", "Verde"),
+                tr("Naranja", "Orange", "Laranja"),
+                tr("Rosa", "Pink", "Rosa")
+        };
+        int[] colorValues = {CYAN, Color.WHITE, 0xFF579BFF, 0xFFB18CFF, 0xFF75D6A0, 0xFFFFB36B, 0xFFFF8FC7};
+        int selectedColor = 0;
+        int currentColor = prefs.getInt(PREF_HOME_NOTE_COLOR, CYAN);
+        for (int i = 0; i < colorValues.length; i++) if (colorValues[i] == currentColor) selectedColor = i;
+        final int[] chosenColor = {selectedColor};
+        new AlertDialog.Builder(this)
+                .setTitle(tr("Color de la nota", "Note color", "Cor da nota"))
+                .setSingleChoiceItems(colors, selectedColor, (d, which) -> chosenColor[0] = which)
+                .setPositiveButton(tr("Siguiente", "Next", "Próximo"), (d, w) -> {
+                    String[] sizes = {"10", "12", "14", "16", "18"};
+                    int currentSize = prefs.getInt(PREF_HOME_NOTE_SIZE, 12);
+                    int selectedSize = Math.max(0, Math.min(4, (currentSize - 10) / 2));
+                    new AlertDialog.Builder(this)
+                            .setTitle(tr("Tamaño de la nota", "Note size", "Tamanho da nota"))
+                            .setSingleChoiceItems(sizes, selectedSize, (dialog, which) -> {
+                                prefs.edit().putInt(PREF_HOME_NOTE_COLOR, colorValues[chosenColor[0]])
+                                        .putInt(PREF_HOME_NOTE_SIZE, 10 + which * 2).apply();
+                                dialog.dismiss();
+                                showHome(true);
+                            })
+                            .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
+                            .show();
                 })
                 .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
                 .show();
@@ -1409,6 +1454,9 @@ public class MainActivity extends Activity {
             data.put(PREF_WALLPAPER_URI, p.getString(PREF_WALLPAPER_URI, ""));
             data.put(PREF_FORCE_MOTOROLL_BG, p.getBoolean(PREF_FORCE_MOTOROLL_BG, false));
             data.put(PREF_HOME_NOTE, p.getString(PREF_HOME_NOTE, ""));
+            data.put(PREF_HOME_NOTE_COLOR, p.getInt(PREF_HOME_NOTE_COLOR, CYAN));
+            data.put(PREF_HOME_NOTE_SIZE, p.getInt(PREF_HOME_NOTE_SIZE, 12));
+            data.put(PREF_WEATHER_SHAPE, p.getInt(PREF_WEATHER_SHAPE, 0));
             data.put(PREF_HOME_SEARCH_VISIBLE, p.getBoolean(PREF_HOME_SEARCH_VISIBLE, false));
             data.put(PREF_HOME_NOTE_X, p.getInt(PREF_HOME_NOTE_X, 0));
             data.put(PREF_HOME_NOTE_Y, p.getInt(PREF_HOME_NOTE_Y, 500));
@@ -1472,6 +1520,9 @@ public class MainActivity extends Activity {
                             edit.putBoolean(PREF_DATE_VISIBLE, data.optBoolean(PREF_DATE_VISIBLE, true));
                             edit.putBoolean(PREF_BATTERY_WIDGET, data.optBoolean(PREF_BATTERY_WIDGET, false));
                             edit.putString(PREF_HOME_NOTE, data.optString(PREF_HOME_NOTE, ""));
+                            edit.putInt(PREF_HOME_NOTE_COLOR, data.optInt(PREF_HOME_NOTE_COLOR, CYAN));
+                            edit.putInt(PREF_HOME_NOTE_SIZE, data.optInt(PREF_HOME_NOTE_SIZE, 12));
+                            edit.putInt(PREF_WEATHER_SHAPE, data.optInt(PREF_WEATHER_SHAPE, 0));
                             edit.putBoolean(PREF_HOME_SEARCH_VISIBLE, data.optBoolean(PREF_HOME_SEARCH_VISIBLE, false));
                             edit.putInt(PREF_HOME_NOTE_X, data.optInt(PREF_HOME_NOTE_X, 0));
                             edit.putInt(PREF_HOME_NOTE_Y, data.optInt(PREF_HOME_NOTE_Y, 500));
@@ -2013,7 +2064,7 @@ public class MainActivity extends Activity {
                 .setTitle(tr("Posición del widget del clima", "Weather widget position", "Posição do widget do clima"))
                 .setSingleChoiceItems(new String[]{
                         tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"),
-                        tr("Al lado del reloj · cuadrado", "Beside the clock · square", "Ao lado do relógio · quadrado")
+                        tr("A la derecha del reloj · ajuste automático", "Beside the clock · auto spacing", "Ao lado do relógio · espaço automático")
                 }, selected, (dialog, which) -> {
                     prefs.edit().putInt(PREF_WEATHER_POSITION, which).apply();
                     dialog.dismiss();
@@ -2022,13 +2073,37 @@ public class MainActivity extends Activity {
                 .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null).show();
     }
 
+    private void chooseWeatherShape() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String[] shapes = {
+                tr("Redondeado", "Rounded", "Arredondado"),
+                tr("Cuadrado", "Square", "Quadrado"),
+                tr("Medio cuadrado · esquinas suaves", "Soft square · rounded corners", "Meio quadrado · cantos suaves")
+        };
+        int selected = prefs.getInt(PREF_WEATHER_SHAPE, 0);
+        new AlertDialog.Builder(this)
+                .setTitle(tr("Forma del widget del clima", "Weather widget shape", "Formato do widget de clima"))
+                .setSingleChoiceItems(shapes, selected, (dialog, which) -> {
+                    prefs.edit().putInt(PREF_WEATHER_SHAPE, which).apply();
+                    dialog.dismiss();
+                    showHome(true);
+                })
+                .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
+                .show();
+    }
+
     private void addSquareWeatherWidget(LinearLayout parent) {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         LinearLayout card = column();
         card.setGravity(Gravity.CENTER);
         card.setPadding(dp(7), dp(7), dp(7), dp(7));
-        card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF31598C, 0xFF172943, 0xFF121D31}));
+        GradientDrawable weatherBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF31598C, 0xFF172943, 0xFF121D31});
+        int weatherShape = prefs.getInt(PREF_WEATHER_SHAPE, 0);
+        float cornerRadius = weatherShape == 1 ? 8f : weatherShape == 2 ? 19f : 30f;
+        weatherBackground.setCornerRadius(dp(cornerRadius));
+        weatherBackground.setStroke(dp(1), 0x704F83C8);
+        card.setBackground(weatherBackground);
         card.setElevation(dp(3));
 
         TextView place = text(prefs.getString(PREF_WEATHER_PLACE, prefs.getString(PREF_WEATHER_CITY, "")), 8, 0xFFDCEBFF, true);
@@ -2059,8 +2134,9 @@ public class MainActivity extends Activity {
         card.setOnClickListener(v -> chooseWeatherCity(false));
         card.setOnLongClickListener(v -> { chooseWeatherPosition(); return true; });
         card.setContentDescription(tr("Widget del clima. Toca para cambiar ciudad", "Weather widget. Tap to change city", "Widget do clima. Toque para mudar cidade"));
-        LinearLayout.LayoutParams params = lp(94, 94);
-        params.topMargin = dp(7);
+        LinearLayout.LayoutParams params = lp(84, 84);
+        params.leftMargin = dp(7);
+        params.topMargin = dp(4);
         parent.addView(card, params);
     }
 
@@ -2219,30 +2295,29 @@ public class MainActivity extends Activity {
         boolean weatherBesideClock = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getBoolean(PREF_WEATHER_ENABLED, false)
                 && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) == 1;
-        if (!hasHomeNote && !weatherBesideClock) {
-            content.addView(clock, withTop(lp(-1, -2), 7));
-        } else {
-            // Optional personal note and square weather tile can sit beside the clock.
-            LinearLayout clockAndNote = row();
-            clockAndNote.setGravity(Gravity.CENTER_VERTICAL);
+        if (weatherBesideClock) {
+            // Give the note its own line so the clock and weather tile never squeeze it.
+            LinearLayout clockAndWeather = row();
+            clockAndWeather.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams clockParams = new LinearLayout.LayoutParams(0, -2, 1f);
             clockParams.topMargin = dp(7);
-            clockAndNote.addView(clock, clockParams);
-            if (hasHomeNote) {
-                TextView note = text(homeNote, 12, CYAN, true);
-                note.setMaxLines(2);
-                note.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                note.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-                note.setMaxWidth(dp(weatherBesideClock ? 72 : 118));
-                note.setContentDescription(tr("Nota personal", "Personal note", "Nota pessoal"));
-                note.setOnLongClickListener(v -> { chooseHomeNote(); return true; });
-                LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-2, -2);
-                noteParams.leftMargin = dp(7);
-                noteParams.topMargin = dp(7);
-                clockAndNote.addView(note, noteParams);
-            }
-            if (weatherBesideClock) addSquareWeatherWidget(clockAndNote);
-            content.addView(clockAndNote, lp(-1, -2));
+            clockAndWeather.addView(clock, clockParams);
+            addSquareWeatherWidget(clockAndWeather);
+            content.addView(clockAndWeather, lp(-1, -2));
+        } else {
+            content.addView(clock, withTop(lp(-1, -2), 7));
+        }
+        if (hasHomeNote) {
+            SharedPreferences notePrefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+            int noteColor = notePrefs.getInt(PREF_HOME_NOTE_COLOR, CYAN);
+            int noteSize = notePrefs.getInt(PREF_HOME_NOTE_SIZE, 12);
+            TextView note = text(homeNote, noteSize, noteColor, true);
+            note.setMaxLines(2);
+            note.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            note.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
+            note.setContentDescription(tr("Nota personal. Mantén pulsado para editar", "Personal note. Long-press to edit", "Nota pessoal. Pressione para editar"));
+            note.setOnLongClickListener(v -> { chooseHomeNote(); return true; });
+            content.addView(note, withTop(lp(-1, -2), 3));
         }
 
         TextClock date = new TextClock(this);
