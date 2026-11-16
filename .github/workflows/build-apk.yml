@@ -1,5 +1,5 @@
 
-name: Build Motoroll Home 3.0.2 APK
+name: Build Motoroll Home
 
 on:
   push:
@@ -12,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
@@ -54,10 +55,55 @@ jobs:
           echo "MainActivity compilada: $CLASS_FILE"
           test -s app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload APK
+      - name: Decode permanent signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ERROR: Falta KEYSTORE_BASE64"
+            exit 1
+          fi
+
+          echo "$KEYSTORE_BASE64" \
+            | sed '/-----BEGIN CERTIFICATE-----/d; /-----END CERTIFICATE-----/d' \
+            | tr -d '[:space:]' \
+            | base64 --decode > "$RUNNER_TEMP/motoroll-release.p12"
+
+          test -s "$RUNNER_TEMP/motoroll-release.p12"
+
+      - name: Sign APK permanently
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          APK_UNSIGNED="app/build/outputs/apk/debug/app-debug.apk"
+          APK_SIGNED="app/build/outputs/apk/debug/MotorollHome.apk"
+
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/motoroll-release.p12" \
+            --ks-type PKCS12 \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$APK_SIGNED" \
+            "$APK_UNSIGNED"
+
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify \
+            --verbose --print-certs "$APK_SIGNED"
+
+          test -s "$APK_SIGNED"
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MotorollHome-3.0.2-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MotorollHome-release-apk
+          path: app/build/outputs/apk/debug/MotorollHome.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
