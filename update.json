@@ -1,6 +1,6 @@
 {
-  "versionCode": 23,
-  "versionName": "3.3.13",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.13/MotorollHome.apk",
-  "releaseNotes": "Se corrige la visibilidad del reloj al alinearlo a la izquierda junto al widget del clima. Se reorganiza Personalización por categorías: Pantalla y fondos, Reloj y clima, Notas y widgets, Aplicaciones e iconos, Bóveda y navegación, y Sistema y ajustes. Se conservan las opciones y preferencias existentes."
+  "versionCode": 24,
+  "versionName": "3.3.14",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.14/MotorollHome.apk",
+  "releaseNotes": "Se corrige la posición independiente del widget del clima: ahora se coloca en el borde izquierdo o derecho sin desplazar el reloj. El reloj mantiene su alineación original respecto al ancho completo de la pantalla (izquierda, centro o derecha). Se conservan las opciones y preferencias anteriores."
 }
