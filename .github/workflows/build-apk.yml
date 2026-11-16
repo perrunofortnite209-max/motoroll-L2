@@ -164,8 +164,8 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.15
-          name: Motoroll Home 3.3.15
+          tag_name: v3.3.16
+          name: Motoroll Home 3.3.16
           body: |
             Nuevas opciones de personalización:
             - Widget del clima circular, cuadrado o con esquinas suaves.
@@ -173,6 +173,8 @@ jobs:
             - El reloj conserva su alineación y ambos elementos reservan espacio para evitar superposiciones.
             - Notas con color y tamaño configurables, colocadas en una línea propia.
             - El clima nunca comparte el mismo borde que el reloj; el selector detecta el lado ocupado y mueve el clima al lado libre automáticamente.
+            - Se corrige el recorte del widget pequeño del clima y se mejora la detección del gesto vertical para abrir la bóveda.
+            - Se evita volver a consultar la lista completa de aplicaciones al regresar de otra app; los cambios se detectan mediante eventos de Android.
             - Personalización se reorganiza en seis categorías para encontrar los ajustes sin recorrer una lista larga.
             - Se conservan las opciones, preferencias guardadas, paginación horizontal, fondos y funciones anteriores.
           files: app/build/outputs/apk/debug/MotorollHome.apk
