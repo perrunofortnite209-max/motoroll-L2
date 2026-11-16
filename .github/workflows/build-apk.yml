@@ -1,4 +1,3 @@
-
 name: Build Motoroll Home
 
 on:
@@ -49,42 +48,71 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          CLASS_FILE="$(find app/build/intermediates -type f \
-            -name 'MainActivity.class' \
-            -path '*com/motoroll/home/*' -print -quit)"
-
+          CLASS_FILE="$(find app/build/intermediates -type f -name 'MainActivity.class' -path '*com/motoroll/home/*' -print -quit)"
           if [ -z "$CLASS_FILE" ]; then
             echo "ERROR: MainActivity.class no fue generado."
             exit 1
           fi
-
           echo "MainActivity compilada: $CLASS_FILE"
           test -s app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Decode permanent signing key
+      - name: Decode and validate permanent signing key
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           set -euo pipefail
 
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
-            echo "ERROR: Falta el secreto KEYSTORE_BASE64."
+          python3 - <<'PY'
+          import os
+          import re
+          import base64
+          import subprocess
+          import sys
+
+          raw = os.environ.get("KEYSTORE_BASE64", "")
+          if not raw.strip():
+              sys.exit("ERROR: Falta KEYSTORE_BASE64.")
+
+          # certutil -encode adds PEM headers and Windows line breaks.
+          raw = raw.replace("-----BEGIN CERTIFICATE-----", "")
+          raw = raw.replace("-----END CERTIFICATE-----", "")
+          # Keep only Base64 alphabet; remove BOM, whitespace and other formatting.
+          clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
+          if not clean:
+              sys.exit("ERROR: KEYSTORE_BASE64 no contiene datos Base64.")
+
+          # Repair omitted padding without changing the encoded payload.
+          clean += "=" * ((-len(clean)) % 4)
+
+          try:
+              decoded = base64.b64decode(clean, validate=False)
+          except Exception as exc:
+              sys.exit("ERROR: No se pudo decodificar KEYSTORE_BASE64: " + str(exc))
+
+          if len(decoded) < 100 or decoded[0] != 0x30:
+              sys.exit("ERROR: El contenido decodificado no parece un PKCS12 válido.")
+
+          output = os.path.join(os.environ["RUNNER_TEMP"], "motoroll-release.p12")
+          with open(output, "wb") as f:
+              f.write(decoded)
+
+          print("Keystore decodificado. Tamaño:", len(decoded), "bytes")
+          PY
+
+          if [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ]; then
+            echo "ERROR: Falta KEYSTORE_PASSWORD o KEY_ALIAS."
             exit 1
           fi
 
-          printf '%s' "$KEYSTORE_BASE64" \
-            | tr -d '\r\n\t ' \
-            | sed 's/-----BEGIN CERTIFICATE-----//g; s/-----END CERTIFICATE-----//g' \
-            | base64 --decode > "$RUNNER_TEMP/motoroll-release.p12"
+          keytool -list -storetype PKCS12 \
+            -keystore "$RUNNER_TEMP/motoroll-release.p12" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null
 
-          if [ ! -s "$RUNNER_TEMP/motoroll-release.p12" ]; then
-            echo "ERROR: El archivo PKCS12 quedó vacío."
-            exit 1
-          fi
-
-          echo "Keystore decodificado correctamente."
+          echo "PKCS12 y contraseña verificados correctamente."
 
       - name: Sign APK permanently
         shell: bash
@@ -95,21 +123,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "${KEYSTORE_PASSWORD:-}" ] || \
-             [ -z "${KEY_ALIAS:-}" ] || \
-             [ -z "${KEY_PASSWORD:-}" ]; then
+          if [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
             echo "ERROR: Falta uno o más secretos de firma."
             exit 1
           fi
 
           APK_UNSIGNED="app/build/outputs/apk/debug/app-debug.apk"
           APK_SIGNED="app/build/outputs/apk/debug/MotorollHome.apk"
+          KEYSTORE="$RUNNER_TEMP/motoroll-release.p12"
           APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
 
           test -s "$APK_UNSIGNED"
+          test -s "$KEYSTORE"
 
           "$APKSIGNER" sign \
-            --ks "$RUNNER_TEMP/motoroll-release.p12" \
+            --ks "$KEYSTORE" \
             --ks-type PKCS12 \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
@@ -117,11 +145,7 @@ jobs:
             --out "$APK_SIGNED" \
             "$APK_UNSIGNED"
 
-          "$APKSIGNER" verify \
-            --verbose \
-            --print-certs \
-            "$APK_SIGNED"
-
+          "$APKSIGNER" verify --verbose --print-certs "$APK_SIGNED"
           test -s "$APK_SIGNED"
           echo "APK firmada y verificada correctamente."
 
