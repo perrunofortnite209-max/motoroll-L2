@@ -1165,9 +1165,9 @@ public class MainActivity extends Activity {
                 ? tr("Clima: activado", "Weather: on", "Clima: ativado")
                 : tr("Clima: desactivado", "Weather: off", "Clima: desativado"));
         if (weatherEnabled) {
-            keys.add("weather_position"); labels.add(tr("Widget del clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "al lado del reloj" : "debajo del reloj"),
-                    "Weather widget: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "beside clock" : "below clock"),
-                    "Widget do clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "ao lado do relógio" : "abaixo do relógio")));
+            keys.add("weather_position"); labels.add(tr("Widget del clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "debajo del reloj" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "a la izquierda del reloj" : "a la derecha del reloj")),
+                    "Weather widget: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "below clock" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "left of clock" : "right of clock")),
+                    "Widget do clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "abaixo do relógio" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "à esquerda do relógio" : "à direita do relógio"))));
         }
         if (weatherEnabled) {
             keys.add("weather_city"); labels.add(tr("Configurar ciudad del clima · " + city,
@@ -2060,12 +2060,14 @@ public class MainActivity extends Activity {
     private void chooseWeatherPosition() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         int selected = prefs.getInt(PREF_WEATHER_POSITION, 0);
+        String[] positions = {
+                tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"),
+                tr("A la derecha del reloj", "Right of the clock", "À direita do relógio"),
+                tr("A la izquierda del reloj", "Left of the clock", "À esquerda do relógio")
+        };
         new AlertDialog.Builder(this)
-                .setTitle(tr("Posición del widget del clima", "Weather widget position", "Posição do widget do clima"))
-                .setSingleChoiceItems(new String[]{
-                        tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"),
-                        tr("A la derecha del reloj · ajuste automático", "Beside the clock · auto spacing", "Ao lado do relógio · espaço automático")
-                }, selected, (dialog, which) -> {
+                .setTitle(tr("Posición independiente del clima", "Independent weather position", "Posição independente do clima"))
+                .setSingleChoiceItems(positions, selected, (dialog, which) -> {
                     prefs.edit().putInt(PREF_WEATHER_POSITION, which).apply();
                     dialog.dismiss();
                     showHome(true);
@@ -2075,13 +2077,13 @@ public class MainActivity extends Activity {
 
     private int weatherCornerRadiusDp() {
         int shape = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_SHAPE, 0);
-        return shape == 1 ? 8 : shape == 2 ? 19 : 30;
+        return shape == 1 ? 8 : shape == 2 ? 19 : 42;
     }
 
     private void chooseWeatherShape() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String[] shapes = {
-                tr("Redondeado", "Rounded", "Arredondado"),
+                tr("Circular", "Circular", "Circular"),
                 tr("Cuadrado", "Square", "Quadrado"),
                 tr("Medio cuadrado · esquinas suaves", "Soft square · rounded corners", "Meio quadrado · cantos suaves")
         };
@@ -2302,13 +2304,22 @@ public class MainActivity extends Activity {
                 .getBoolean(PREF_WEATHER_ENABLED, false)
                 && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) == 1;
         if (weatherBesideClock) {
-            // Give the note its own line so the clock and weather tile never squeeze it.
+            // Weather position is independent from clock alignment; weighted clock space prevents overlap.
             LinearLayout clockAndWeather = row();
             clockAndWeather.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams clockParams = new LinearLayout.LayoutParams(0, -2, 1f);
             clockParams.topMargin = dp(7);
-            clockAndWeather.addView(clock, clockParams);
-            addSquareWeatherWidget(clockAndWeather);
+            int weatherPosition = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .getInt(PREF_WEATHER_POSITION, 1);
+            if (weatherPosition == 2) {
+                addSquareWeatherWidget(clockAndWeather);
+                clock.setGravity(clockGravity());
+                clockAndWeather.addView(clock, clockParams);
+            } else {
+                clock.setGravity(clockGravity());
+                clockAndWeather.addView(clock, clockParams);
+                addSquareWeatherWidget(clockAndWeather);
+            }
             content.addView(clockAndWeather, lp(-1, -2));
         } else {
             content.addView(clock, withTop(lp(-1, -2), 7));
