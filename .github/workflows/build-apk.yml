@@ -160,8 +160,8 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.7
-          name: Motoroll Home 3.3.7
+          tag_name: v3.3.8
+          name: Motoroll Home 3.3.8
           body: |
             Motoroll Update Center integrado.
             Corrección del scroll horizontal Samsung: páginas ajustadas al ancho real y gestos horizontales reconocidos desde la cuadrícula.
