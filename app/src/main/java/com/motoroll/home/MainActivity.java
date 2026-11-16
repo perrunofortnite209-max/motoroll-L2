@@ -1836,14 +1836,23 @@ public class MainActivity extends Activity {
     }
 
     private void chooseClockPosition() {
-        String[] choices = {tr("Izquierda", "Left", "Esquerda"), tr("Centro", "Center", "Centro"), tr("Derecha", "Right", "Direita")};
-        int selected = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getInt(PREF_CLOCK_POSITION, 0);
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String[] choices = {
+                tr("Izquierda", "Left", "Esquerda"),
+                tr("Centro", "Center", "Centro"),
+                tr("Derecha", "Right", "Direita")
+        };
+        int selected = prefs.getInt(PREF_CLOCK_POSITION, 0);
         new AlertDialog.Builder(this)
                 .setTitle(tr("Posición del reloj", "Clock position", "Posição do relógio"))
                 .setSingleChoiceItems(choices, selected, (dialog, which) -> {
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                            .putInt(PREF_CLOCK_POSITION, which).apply();
+                    SharedPreferences.Editor editor = prefs.edit().putInt(PREF_CLOCK_POSITION, which);
+                    int weatherPosition = prefs.getInt(PREF_WEATHER_POSITION, 0);
+                    // If clock and weather would occupy the same edge, move weather
+                    // automatically to the opposite edge. Center never conflicts.
+                    if (which == 0 && weatherPosition == 2) editor.putInt(PREF_WEATHER_POSITION, 1);
+                    else if (which == 2 && weatherPosition == 1) editor.putInt(PREF_WEATHER_POSITION, 2);
+                    editor.apply();
                     dialog.dismiss();
                     showHome(true);
                 })
@@ -2109,15 +2118,28 @@ public class MainActivity extends Activity {
     private void chooseWeatherPosition() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         int selected = prefs.getInt(PREF_WEATHER_POSITION, 0);
-        String[] positions = {
-                tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"),
-                tr("A la derecha del reloj", "Right of the clock", "À direita do relógio"),
-                tr("A la izquierda del reloj", "Left of the clock", "À esquerda do relógio")
-        };
+        int clockPosition = prefs.getInt(PREF_CLOCK_POSITION, 0);
+        List<String> labels = new ArrayList<>();
+        List<Integer> values = new ArrayList<>();
+        labels.add(tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"));
+        values.add(0);
+        // Hide the edge already occupied by the clock. Keep the stored values
+        // (1 = right, 2 = left) so existing preferences remain compatible.
+        if (clockPosition != 2) {
+            labels.add(tr("A la derecha", "Right side", "À direita"));
+            values.add(1);
+        }
+        if (clockPosition != 0) {
+            labels.add(tr("A la izquierda", "Left side", "À esquerda"));
+            values.add(2);
+        }
+        String[] positions = labels.toArray(new String[0]);
+        int selectedIndex = values.indexOf(selected);
+        if (selectedIndex < 0) selectedIndex = 0;
         new AlertDialog.Builder(this)
                 .setTitle(tr("Posición independiente del clima", "Independent weather position", "Posição independente do clima"))
-                .setSingleChoiceItems(positions, selected, (dialog, which) -> {
-                    prefs.edit().putInt(PREF_WEATHER_POSITION, which).apply();
+                .setSingleChoiceItems(positions, selectedIndex, (dialog, which) -> {
+                    prefs.edit().putInt(PREF_WEATHER_POSITION, values.get(which)).apply();
                     dialog.dismiss();
                     showHome(true);
                 })
