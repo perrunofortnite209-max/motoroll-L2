@@ -1139,95 +1139,137 @@ public class MainActivity extends Activity {
     }
 
     private void showCustomizationMenu() {
-        List<String> keys = new ArrayList<>();
-        List<String> labels = new ArrayList<>();
-        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        boolean weatherEnabled = prefs.getBoolean(PREF_WEATHER_ENABLED, false);
-        int drawerMode = prefs.getInt(PREF_DRAWER_MODE, 0);
-        String city = prefs.getString(PREF_WEATHER_CITY, "");
-
-        keys.add("wallpaper"); labels.add(tr("Fondos de Motoroll y del teléfono", "Motoroll and phone wallpapers", "Papéis de parede do Motoroll e do telefone"));
-        keys.add("drawer"); labels.add(drawerMode == 1
-                ? tr("Bóveda: páginas horizontales ✓", "App drawer: horizontal pages ✓", "Gaveta: páginas horizontais ✓")
-                : tr("Bóveda: desplazamiento vertical ✓", "App drawer: vertical scrolling ✓", "Gaveta: rolagem vertical ✓"));
-        keys.add("clock_position"); labels.add(tr("Posición del reloj", "Clock position", "Posição do relógio"));
-        keys.add("clock_style"); labels.add(tr("Diseño del reloj", "Clock style", "Estilo do relógio"));
-        keys.add("favorites"); labels.add(tr("Editar apps favoritas (agregar / eliminar / reemplazar)", "Edit favorite apps (add / remove / replace)", "Editar apps favoritos (adicionar / remover / substituir)"));
-        keys.add("dock_count"); labels.add(tr("Cantidad de apps inferiores: " + prefs.getInt(PREF_DOCK_COUNT, 4), "Bottom app count: " + prefs.getInt(PREF_DOCK_COUNT, 4), "Quantidade de apps inferiores: " + prefs.getInt(PREF_DOCK_COUNT, 4)));
-        keys.add("dock"); labels.add(tr("Editar aplicaciones inferiores", "Edit bottom apps", "Editar aplicativos inferiores"));
-        int swipeMode = prefs.getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
-        keys.add("swipe_direction"); labels.add(tr("Gesto bóveda: " + (swipeMode == 0 ? "arriba → abajo ✓" : "abajo → arriba ✓"),
-                "Drawer swipe: " + (swipeMode == 0 ? "top → bottom ✓" : "bottom → top ✓"),
-                "Gesto gaveta: " + (swipeMode == 0 ? "cima → baixo ✓" : "baixo → cima ✓")));
-        keys.add("updates"); labels.add(tr("Actualizaciones de Motoroll", "Motoroll updates", "Atualizações do Motoroll"));
-        keys.add("icons"); labels.add(tr("Tamaño de iconos", "Icon size", "Tamanho dos ícones"));
-        keys.add("weather_toggle"); labels.add(weatherEnabled
-                ? tr("Clima: activado", "Weather: on", "Clima: ativado")
-                : tr("Clima: desactivado", "Weather: off", "Clima: desativado"));
-        if (weatherEnabled) {
-            keys.add("weather_position"); labels.add(tr("Widget del clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "debajo del reloj" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "a la izquierda del reloj" : "a la derecha del reloj")),
-                    "Weather widget: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "below clock" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "left of clock" : "right of clock")),
-                    "Widget do clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 0 ? "abaixo do relógio" : (prefs.getInt(PREF_WEATHER_POSITION, 0) == 2 ? "à esquerda do relógio" : "à direita do relógio"))));
-        }
-        if (weatherEnabled) {
-            keys.add("weather_city"); labels.add(tr("Configurar ciudad del clima · " + city,
-                    "Set weather city · " + city, "Configurar cidade do clima · " + city));
-            keys.add("weather_style"); labels.add(tr("Diseño del clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"),
-                    "Weather design: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"), "Design do clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI")));
-            keys.add("weather_shape"); labels.add(tr("Forma del widget del clima", "Weather widget shape", "Formato do widget de clima"));
-        }
-        keys.add("home_search"); labels.add(prefs.getBoolean(PREF_HOME_SEARCH_VISIBLE, false)
-                ? tr("Búsqueda inferior: visible", "Home search bar: visible", "Busca inferior: visível")
-                : tr("Búsqueda inferior: oculta", "Home search bar: hidden", "Busca inferior: oculta"));
-        keys.add("widgets"); labels.add(tr("Widgets y elementos de pantalla", "Widgets and home elements", "Widgets e elementos da tela"));
-        keys.add("home_note"); labels.add(tr("Nota o bienvenida en pantalla principal", "Home screen note or greeting", "Nota ou saudação na tela inicial"));
-        keys.add("home_note_style"); labels.add(tr("Color y tamaño de la nota", "Note color and size", "Cor e tamanho da nota"));
-        keys.add("icon_shape"); labels.add(tr("Forma de los iconos", "Icon shape", "Formato dos ícones"));
-        keys.add("animations"); labels.add(tr("Velocidad de animaciones", "Animation speed", "Velocidade das animações"));
-        keys.add("hidden_apps"); labels.add(tr("Aplicaciones ocultas", "Hidden apps", "Aplicativos ocultos"));
-        keys.add("profiles"); labels.add(tr("Perfiles de apariencia", "Appearance profiles", "Perfis de aparência"));
-        keys.add("language"); labels.add(tr("Idioma", "Language", "Idioma"));
-        keys.add("default_home"); labels.add(tr("Establecer Motoroll como launcher predeterminado",
-                "Set Motoroll as default launcher", "Definir Motoroll como launcher padrão"));
-        keys.add("reset"); labels.add(tr("Restablecer personalización", "Reset customization", "Redefinir personalização"));
-
-        String[] options = labels.toArray(new String[0]);
-        String title = tr("Personalizar Motoroll", "Customize Motoroll", "Personalizar Motoroll");
+        String[] categories = {
+                tr("Pantalla y fondos", "Home screen and wallpapers", "Tela e papéis de parede"),
+                tr("Reloj y clima", "Clock and weather", "Relógio e clima"),
+                tr("Notas y widgets", "Notes and widgets", "Notas e widgets"),
+                tr("Aplicaciones e iconos", "Apps and icons", "Aplicativos e ícones"),
+                tr("Bóveda y navegación", "App drawer and navigation", "Gaveta e navegação"),
+                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes")
+        };
         new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setItems(options, (dialog, which) -> {
-                    String key = keys.get(which);
-                    switch (key) {
-                        case "wallpaper": chooseWallpaper(); break;
-                        case "drawer": chooseDrawerMode(); break;
-                        case "clock_position": chooseClockPosition(); break;
-                        case "clock_style": chooseClockStyle(); break;
-                        case "favorites": manageHomeFavorites(); break;
-                        case "dock": chooseDockSlot(); break;
-                        case "dock_count": chooseDockCount(); break;
-                        case "swipe_direction": chooseDrawerSwipeDirection(); break;
-                        case "updates": checkForUpdates(true); break;
-                        case "icons": chooseIconSize(); break;
-                        case "weather_toggle": toggleWeather(); break;
-                        case "weather_city": chooseWeatherCity(false); break;
-                        case "weather_style": chooseWeatherStyle(); break;
-                        case "weather_position": chooseWeatherPosition(); break;
-                        case "weather_shape": chooseWeatherShape(); break;
-                        case "home_search": toggleHomeSearch(); break;
-                        case "widgets": chooseWidgets(); break;
-                        case "home_note": chooseHomeNote(); break;
-                        case "home_note_style": chooseHomeNoteStyle(); break;
-                        case "icon_shape": chooseIconShape(); break;
-                        case "animations": chooseAnimationMode(); break;
-                        case "hidden_apps": chooseHiddenApps(); break;
-                        case "profiles": manageAppearanceProfiles(); break;
-                        case "language": chooseLanguage(); break;
-                        case "default_home": openHomeAppSettings(); break;
-                        case "reset": resetCustomization(); break;
-                    }
-                })
+                .setTitle(tr("Personalización", "Personalization", "Personalização"))
+                .setItems(categories, (dialog, which) -> showCustomizationCategory(which))
                 .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
                 .show();
+    }
+
+    private void showCustomizationCategory(int category) {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        boolean weatherEnabled = prefs.getBoolean(PREF_WEATHER_ENABLED, false);
+        List<String> keys = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+
+        switch (category) {
+            case 0: // Home screen and wallpapers
+                keys.add("wallpaper"); labels.add(tr("Fondos de Motoroll y del teléfono", "Motoroll and phone wallpapers", "Papéis de parede do Motoroll e do telefone"));
+                keys.add("home_search"); labels.add(prefs.getBoolean(PREF_HOME_SEARCH_VISIBLE, false)
+                        ? tr("Búsqueda inferior: visible", "Home search bar: visible", "Busca inferior: visível")
+                        : tr("Búsqueda inferior: oculta", "Home search bar: hidden", "Busca inferior: oculta"));
+                keys.add("date"); labels.add(tr("Mostrar u ocultar la fecha", "Show or hide date", "Mostrar ou ocultar a data"));
+                break;
+            case 1: // Clock and weather
+                keys.add("clock_position"); labels.add(tr("Posición del reloj", "Clock position", "Posição do relógio"));
+                keys.add("clock_style"); labels.add(tr("Diseño del reloj", "Clock style", "Estilo do relógio"));
+                keys.add("weather_toggle"); labels.add(weatherEnabled
+                        ? tr("Clima: activado", "Weather: on", "Clima: ativado")
+                        : tr("Clima: desactivado", "Weather: off", "Clima: desativado"));
+                if (weatherEnabled) {
+                    int position = prefs.getInt(PREF_WEATHER_POSITION, 0);
+                    keys.add("weather_position"); labels.add(tr("Posición del clima: " + (position == 0 ? "debajo" : position == 2 ? "izquierda" : "derecha"),
+                            "Weather position: " + (position == 0 ? "below" : position == 2 ? "left" : "right"),
+                            "Posição do clima: " + (position == 0 ? "abaixo" : position == 2 ? "esquerda" : "direita")));
+                    keys.add("weather_city"); labels.add(tr("Ciudad del clima · " + prefs.getString(PREF_WEATHER_CITY, ""),
+                            "Weather city · " + prefs.getString(PREF_WEATHER_CITY, ""), "Cidade do clima · " + prefs.getString(PREF_WEATHER_CITY, "")));
+                    keys.add("weather_style"); labels.add(tr("Diseño del clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"),
+                            "Weather design: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"),
+                            "Design do clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI")));
+                    keys.add("weather_shape"); labels.add(tr("Forma del widget del clima", "Weather widget shape", "Formato do widget de clima"));
+                }
+                break;
+            case 2: // Notes and widgets
+                keys.add("home_note"); labels.add(tr("Editar nota o bienvenida", "Edit note or greeting", "Editar nota ou saudação"));
+                keys.add("home_note_style"); labels.add(tr("Color y tamaño de la nota", "Note color and size", "Cor e tamanho da nota"));
+                keys.add("widgets"); labels.add(tr("Widgets y elementos de pantalla", "Widgets and home elements", "Widgets e elementos da tela"));
+                keys.add("profiles"); labels.add(tr("Perfiles de apariencia", "Appearance profiles", "Perfis de aparência"));
+                break;
+            case 3: // Apps and icons
+                keys.add("favorites"); labels.add(tr("Editar apps favoritas", "Edit favorite apps", "Editar apps favoritos"));
+                keys.add("dock_count"); labels.add(tr("Cantidad de apps inferiores: " + prefs.getInt(PREF_DOCK_COUNT, 4),
+                        "Bottom app count: " + prefs.getInt(PREF_DOCK_COUNT, 4), "Quantidade de apps inferiores: " + prefs.getInt(PREF_DOCK_COUNT, 4)));
+                keys.add("dock"); labels.add(tr("Editar aplicaciones inferiores", "Edit bottom apps", "Editar aplicativos inferiores"));
+                keys.add("icons"); labels.add(tr("Tamaño de iconos", "Icon size", "Tamanho dos ícones"));
+                keys.add("icon_shape"); labels.add(tr("Forma de los iconos", "Icon shape", "Formato dos ícones"));
+                keys.add("hidden_apps"); labels.add(tr("Aplicaciones ocultas", "Hidden apps", "Aplicativos ocultos"));
+                break;
+            case 4: // Drawer and navigation
+                keys.add("drawer"); labels.add(prefs.getInt(PREF_DRAWER_MODE, 0) == 1
+                        ? tr("Bóveda: páginas horizontales ✓", "App drawer: horizontal pages ✓", "Gaveta: páginas horizontais ✓")
+                        : tr("Bóveda: desplazamiento vertical ✓", "App drawer: vertical scrolling ✓", "Gaveta: rolagem vertical ✓"));
+                int swipeMode = prefs.getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
+                keys.add("swipe_direction"); labels.add(tr("Gesto de bóveda: " + (swipeMode == 0 ? "arriba → abajo" : "abajo → arriba"),
+                        "Drawer gesture: " + (swipeMode == 0 ? "top → bottom" : "bottom → top"),
+                        "Gesto da gaveta: " + (swipeMode == 0 ? "cima → baixo" : "baixo → cima")));
+                break;
+            case 5: // System
+                keys.add("animations"); labels.add(tr("Velocidad de animaciones", "Animation speed", "Velocidade das animações"));
+                keys.add("language"); labels.add(tr("Idioma", "Language", "Idioma"));
+                keys.add("updates"); labels.add(tr("Actualizaciones de Motoroll", "Motoroll updates", "Atualizações do Motoroll"));
+                keys.add("default_home"); labels.add(tr("Establecer Motoroll como launcher predeterminado",
+                        "Set Motoroll as default launcher", "Definir Motoroll como launcher padrão"));
+                keys.add("reset"); labels.add(tr("Restablecer personalización", "Reset customization", "Redefinir personalização"));
+                break;
+            default:
+                return;
+        }
+
+        String[] options = labels.toArray(new String[0]);
+        String[] categoryNames = {
+                tr("Pantalla y fondos", "Home screen and wallpapers", "Tela e papéis de parede"),
+                tr("Reloj y clima", "Clock and weather", "Relógio e clima"),
+                tr("Notas y widgets", "Notes and widgets", "Notas e widgets"),
+                tr("Aplicaciones e iconos", "Apps and icons", "Aplicativos e ícones"),
+                tr("Bóveda y navegación", "App drawer and navigation", "Gaveta e navegação"),
+                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes")
+        };
+        new AlertDialog.Builder(this)
+                .setTitle(categoryNames[category])
+                .setItems(options, (dialog, which) -> runCustomizationAction(keys.get(which)))
+                .setNeutralButton(tr("Volver", "Back", "Voltar"), (dialog, which) -> showCustomizationMenu())
+                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
+                .show();
+    }
+
+    private void runCustomizationAction(String key) {
+        switch (key) {
+            case "wallpaper": chooseWallpaper(); break;
+            case "drawer": chooseDrawerMode(); break;
+            case "clock_position": chooseClockPosition(); break;
+            case "clock_style": chooseClockStyle(); break;
+            case "favorites": manageHomeFavorites(); break;
+            case "dock": chooseDockSlot(); break;
+            case "dock_count": chooseDockCount(); break;
+            case "swipe_direction": chooseDrawerSwipeDirection(); break;
+            case "updates": checkForUpdates(true); break;
+            case "icons": chooseIconSize(); break;
+            case "weather_toggle": toggleWeather(); break;
+            case "weather_city": chooseWeatherCity(false); break;
+            case "weather_style": chooseWeatherStyle(); break;
+            case "weather_position": chooseWeatherPosition(); break;
+            case "weather_shape": chooseWeatherShape(); break;
+            case "home_search": toggleHomeSearch(); break;
+            case "date": toggleDateVisibility(); break;
+            case "widgets": chooseWidgets(); break;
+            case "home_note": chooseHomeNote(); break;
+            case "home_note_style": chooseHomeNoteStyle(); break;
+            case "icon_shape": chooseIconShape(); break;
+            case "animations": chooseAnimationMode(); break;
+            case "hidden_apps": chooseHiddenApps(); break;
+            case "profiles": manageAppearanceProfiles(); break;
+            case "language": chooseLanguage(); break;
+            case "default_home": openHomeAppSettings(); break;
+            case "reset": resetCustomization(); break;
+        }
     }
 
     private void addDraggableHomeNote(FrameLayout area, String value) {
@@ -1276,6 +1318,13 @@ public class MainActivity extends Activity {
         });
         note.setOnClickListener(v -> { });
         note.setContentDescription(tr("Nota personal. Mantén y arrastra para moverla", "Personal note. Touch and drag to move", "Nota pessoal. Toque e arraste para mover"));
+    }
+
+    private void toggleDateVisibility() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        boolean visible = prefs.getBoolean(PREF_DATE_VISIBLE, true);
+        prefs.edit().putBoolean(PREF_DATE_VISIBLE, !visible).apply();
+        showHome(true);
     }
 
     private void chooseHomeNote() {
@@ -2307,17 +2356,22 @@ public class MainActivity extends Activity {
             // Weather position is independent from clock alignment; weighted clock space prevents overlap.
             LinearLayout clockAndWeather = row();
             clockAndWeather.setGravity(Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams clockParams = new LinearLayout.LayoutParams(0, -2, 1f);
-            clockParams.topMargin = dp(7);
             int weatherPosition = getSharedPreferences(PREFS, MODE_PRIVATE)
                     .getInt(PREF_WEATHER_POSITION, 1);
+            LinearLayout clockSlot = column();
+            clockSlot.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
+            clockSlot.setMinimumWidth(dp(145));
+            clock.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
+            clock.setSingleLine(true);
+            clock.setMinWidth(dp(145));
+            LinearLayout.LayoutParams clockSlotParams = new LinearLayout.LayoutParams(0, -2, 1f);
+            clockSlotParams.topMargin = dp(7);
+            clockSlot.addView(clock, lp(-1, -2));
             if (weatherPosition == 2) {
                 addSquareWeatherWidget(clockAndWeather);
-                clock.setGravity(clockGravity());
-                clockAndWeather.addView(clock, clockParams);
+                clockAndWeather.addView(clockSlot, clockSlotParams);
             } else {
-                clock.setGravity(clockGravity());
-                clockAndWeather.addView(clock, clockParams);
+                clockAndWeather.addView(clockSlot, clockSlotParams);
                 addSquareWeatherWidget(clockAndWeather);
             }
             content.addView(clockAndWeather, lp(-1, -2));
