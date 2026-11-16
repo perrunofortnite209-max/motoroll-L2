@@ -1,0 +1,22 @@
+MOTOROLL HOME 3.0.2 — FIX CLASS NOT FOUND
+
+CAUSA DEL CIERRE:
+El AndroidManifest declaraba com.motoroll.home.MainActivity, pero el APK instalado no contenía esa clase en el DEX. Esto suele ocurrir cuando MainActivity.java no está en la carpeta sourceSet correcta o su package no coincide.
+
+RUTA OBLIGATORIA:
+app/src/main/java/com/motoroll/home/MainActivity.java
+
+PRIMERA LÍNEA:
+package com.motoroll.home;
+
+El manifiesto de este proyecto declara la Activity con su nombre completo:
+com.motoroll.home.MainActivity
+
+QUÉ CAMBIA:
+- app/build.gradle: versionCode 5, versionName 3.0.2
+- AndroidManifest: nombre completo de la Activity
+- workflow: verifica que exista la fuente y que Gradle haya generado MainActivity.class antes de publicar el APK.
+
+RECOMENDACIÓN:
+Extrae el proyecto completo y reemplaza el contenido del repositorio manteniendo las rutas relativas desde la raíz. Conserva el workflow .github/workflows/build-apk.yml incluido.
+No instales APKs anteriores si Actions no termina en verde.
