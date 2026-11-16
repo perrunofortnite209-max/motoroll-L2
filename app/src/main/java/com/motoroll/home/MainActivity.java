@@ -2531,6 +2531,21 @@ public class MainActivity extends Activity {
                         + tr("Desliza ← →", "Swipe ← →", "Deslize ← →"));
             }
         });
+        drawerPager.post(() -> {
+            if (drawerPager == null || drawerPages == null) return;
+            int actualWidth = drawerPager.getWidth();
+            if (actualWidth <= 0) return;
+            drawerPageWidth = actualWidth;
+            drawerPager.setPageMetrics(actualWidth, pages);
+            for (int i = 0; i < drawerPages.getChildCount(); i++) {
+                View page = drawerPages.getChildAt(i);
+                ViewGroup.LayoutParams params = page.getLayoutParams();
+                params.width = actualWidth;
+                page.setLayoutParams(params);
+            }
+            drawerPages.requestLayout();
+            drawerPager.requestLayout();
+        });
 
     }
 
@@ -2563,6 +2578,12 @@ public class MainActivity extends Activity {
             return pageWidth > 0 ? pageWidth : Math.max(1, getWidth());
         }
 
+        @Override public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+            // Child GridViews request disallow-intercept for clicks; keep the parent
+            // pager eligible to take over once a clearly horizontal drag begins.
+            super.requestDisallowInterceptTouchEvent(false);
+        }
+
         @Override public boolean onInterceptTouchEvent(MotionEvent event) {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN) {
@@ -2574,7 +2595,7 @@ public class MainActivity extends Activity {
             if (action == MotionEvent.ACTION_MOVE) {
                 float dx = event.getX() - downTouchX;
                 float dy = event.getY() - downTouchY;
-                if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy) * 1.15f) {
+                if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy) * 1.05f) {
                     draggingHorizontally = true;
                     return true;
                 }
