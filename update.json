@@ -1,6 +1,6 @@
 {
-  "versionCode": 28,
-  "versionName": "3.3.18",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.18/MotorollHome.apk",
-  "releaseNotes": "Motoroll Pulse ahora incluye un acceso directo para activarlo o desactivarlo desde Personalización y un menú propio al mantener pulsada la tarjeta. Se conserva el interruptor de Widgets, el diseño, el indicador de batería y todas las funciones anteriores."
+  "versionCode": 29,
+  "versionName": "3.3.19",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.19/MotorollHome.apk",
+  "releaseNotes": "Motoroll Lab incorpora SafeSave para exportar o restaurar ajustes y fondo, Smart Drawer para agrupar opciones de la bóveda y Motoroll Studio para organizar perfiles y apariencia. Se añade un perfil de memoria automático, ahorro RAM y equilibrado, diagnóstico de memoria y reducción adaptativa de caché de iconos y resolución del fondo."
 }

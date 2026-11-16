@@ -54,6 +54,12 @@ jobs:
           grep -q 'PREF_PULSE_WIDGET' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'showPulseOptions' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'togglePulseWidget' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'createSafeSaveManifest' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'restoreSafeSavePreferences' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'applyMemoryProfile' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'showMemoryStatus' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'showSmartDrawerMenu' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'showMotorollStudioMenu' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
@@ -169,13 +175,17 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.18
-          name: Motoroll Home 3.3.18
+          tag_name: v3.3.19
+          name: Motoroll Home 3.3.19
           body: |
-            Mejora de uso de Motoroll Pulse.
-            - Interruptor directo de activación/desactivación dentro de Personalización > Notas y widgets.
-            - Menú contextual al mantener pulsada la tarjeta para ocultarla o volver a activarla.
-            - Se conserva la opción de Widgets de Motoroll y todas las funciones anteriores.
+            Motoroll Lab y optimización de memoria.
+            - SafeSave permite exportar y restaurar preferencias, perfiles, dock, favoritos y fondo personalizado en un ZIP.
+            - Smart Drawer organiza las opciones del cajón sin cargar componentes extra en segundo plano.
+            - Motoroll Studio reúne perfiles, fondos e iconos usando las herramientas existentes.
+            - Perfiles de RAM: automático, ahorro y equilibrado.
+            - Diagnóstico bajo demanda con RAM del sistema, PSS aproximado del proceso, heap Java y caché de iconos.
+            - Caché de iconos adaptativa, liberación bajo presión de memoria y fondos personalizados con resolución limitada por perfil.
+            - No se añaden servicios permanentes, permisos nuevos ni tareas de monitorización.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
           overwrite_files: true
