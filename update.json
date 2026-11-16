@@ -1,6 +1,6 @@
 {
-  "versionCode: 25,
+  "versionCode": 25,
   "versionName": "3.3.15",
   "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.15/MotorollHome.apk",
-  "releaseNotes": "Se corrige la posición independiente del widget del clima: ahora se coloca en el borde izquierdo o derecho sin desplazar el reloj. El reloj mantiene su alineación original respecto al ancho completo de la pantalla (izquierda, centro o derecha). Se conservan las opciones y preferencias anteriores."
+  "releaseNotes": "Se evita que el reloj y el clima ocupen el mismo lado. El selector oculta automáticamente el lado ocupado por el reloj; si mueves el reloj a un lado que ya usa el clima, el clima cambia automáticamente al lado opuesto. Se conservan las preferencias y funciones anteriores."
 }
