@@ -44,6 +44,8 @@ jobs:
           grep -q 'class SwipeRootLayout' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'chooseWeatherShape' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'chooseHomeNoteStyle' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'Posición independiente del clima' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'weatherPosition == 2' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
@@ -159,13 +161,14 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.11
-          name: Motoroll Home 3.3.11
+          tag_name: v3.3.12
+          name: Motoroll Home 3.3.12
           body: |
             Nuevas opciones de personalización:
-            - Widget del clima redondeado, cuadrado o con esquinas suaves.
-            - Posición debajo o junto al reloj con separación automática.
-            - Notas con color y tamaño configurables, colocadas en una línea propia para evitar superposiciones.
+            - Widget del clima circular, cuadrado o con esquinas suaves.
+            - Posición independiente a la izquierda o derecha del reloj, o debajo.
+            - El reloj conserva su alineación y ambos elementos reservan espacio para evitar superposiciones.
+            - Notas con color y tamaño configurables, colocadas en una línea propia.
             - Se conservan la paginación horizontal, los fondos y las funciones anteriores.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
