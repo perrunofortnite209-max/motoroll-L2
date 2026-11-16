@@ -110,6 +110,7 @@ public class MainActivity extends Activity {
     private static final String PREF_WEATHER_PLACE = "weather_place";
     private static final String PREF_WEATHER_FETCHED = "weather_fetched_at";
     private static final String PREF_WEATHER_STYLE = "weather_style"; // 0 Motoroll, 1 One UI inspired
+    private static final String PREF_WEATHER_POSITION = "weather_position"; // 0 below clock, 1 beside clock
     private static final String PREF_ICON_SHAPE = "icon_shape"; // 0 rounded, 1 circle, 2 square
     private static final String PREF_ANIMATION_MODE = "animation_mode"; // 0 reduced, 1 smooth, 2 relaxed
     private static final String PREF_DATE_VISIBLE = "date_visible";
@@ -1161,6 +1162,11 @@ public class MainActivity extends Activity {
                 ? tr("Clima: activado", "Weather: on", "Clima: ativado")
                 : tr("Clima: desactivado", "Weather: off", "Clima: desativado"));
         if (weatherEnabled) {
+            keys.add("weather_position"); labels.add(tr("Widget del clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "al lado del reloj" : "debajo del reloj"),
+                    "Weather widget: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "beside clock" : "below clock"),
+                    "Widget do clima: " + (prefs.getInt(PREF_WEATHER_POSITION, 0) == 1 ? "ao lado do relógio" : "abaixo do relógio")));
+        }
+        if (weatherEnabled) {
             keys.add("weather_city"); labels.add(tr("Configurar ciudad del clima · " + city,
                     "Set weather city · " + city, "Configurar cidade do clima · " + city));
             keys.add("weather_style"); labels.add(tr("Diseño del clima: " + (prefs.getInt(PREF_WEATHER_STYLE, 0) == 0 ? "Motoroll" : "Samsung One UI"),
@@ -1395,6 +1401,7 @@ public class MainActivity extends Activity {
             data.put(PREF_DRAWER_MODE, p.getInt(PREF_DRAWER_MODE, 0));
             data.put(PREF_DOCK_COUNT, p.getInt(PREF_DOCK_COUNT, 4));
             data.put(PREF_WEATHER_STYLE, p.getInt(PREF_WEATHER_STYLE, 0));
+            data.put(PREF_WEATHER_POSITION, p.getInt(PREF_WEATHER_POSITION, 0));
             data.put(PREF_ICON_SHAPE, p.getInt(PREF_ICON_SHAPE, 0));
             data.put(PREF_ANIMATION_MODE, p.getInt(PREF_ANIMATION_MODE, 0));
             data.put(PREF_DATE_VISIBLE, p.getBoolean(PREF_DATE_VISIBLE, true));
@@ -1459,6 +1466,7 @@ public class MainActivity extends Activity {
                             edit.putInt(PREF_DRAWER_MODE, data.optInt(PREF_DRAWER_MODE, 0));
                             edit.putInt(PREF_DOCK_COUNT, data.optInt(PREF_DOCK_COUNT, 4));
                             edit.putInt(PREF_WEATHER_STYLE, data.optInt(PREF_WEATHER_STYLE, 0));
+                            edit.putInt(PREF_WEATHER_POSITION, data.optInt(PREF_WEATHER_POSITION, 0));
                             edit.putInt(PREF_ICON_SHAPE, data.optInt(PREF_ICON_SHAPE, 0));
                             edit.putInt(PREF_ANIMATION_MODE, data.optInt(PREF_ANIMATION_MODE, 0));
                             edit.putBoolean(PREF_DATE_VISIBLE, data.optBoolean(PREF_DATE_VISIBLE, true));
