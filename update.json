@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "3.3.16",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.16/MotorollHome.apk",
-  "releaseNotes": "Se corrige el recorte del widget pequeño del clima, se mejora la detección del gesto vertical para abrir la bóveda y se reduce el retraso al volver desde aplicaciones: Motoroll ya no vuelve a consultar toda la lista de apps en cada reanudación, solo cuando Android informa que se instaló, eliminó o actualizó una aplicación."
+  "versionCode": 27,
+  "versionName": "3.3.17",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.17/MotorollHome.apk",
+  "releaseNotes": "Llega Motoroll Pulse: saludo dinámico según la hora y batería circular con estado de carga, integrado en la pantalla principal. Es opcional desde Widgets y no necesita permisos nuevos ni procesos en segundo plano. Se conservan las mejoras de clima, gestos, navegación y rendimiento de la versión anterior."
 }
