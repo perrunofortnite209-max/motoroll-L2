@@ -2737,6 +2737,7 @@ public class MainActivity extends Activity {
         private float startX;
         private float startY;
         private boolean openingGesture;
+        private int activePointerId = MotionEvent.INVALID_POINTER_ID;
         private final int slop = ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
 
         SwipeRootLayout(Context context) {
@@ -2750,37 +2751,59 @@ public class MainActivity extends Activity {
             if (action == MotionEvent.ACTION_DOWN) {
                 startX = event.getX();
                 startY = event.getY();
+                activePointerId = event.getPointerId(0);
                 openingGesture = false;
                 return false;
             }
-            if (action == MotionEvent.ACTION_MOVE) {
-                float dx = event.getX() - startX;
-                float dy = event.getY() - startY;
+            if (action == MotionEvent.ACTION_MOVE && activePointerId != MotionEvent.INVALID_POINTER_ID) {
+                int index = event.findPointerIndex(activePointerId);
+                if (index < 0) return false;
+                float dx = event.getX(index) - startX;
+                float dy = event.getY(index) - startY;
                 int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
                         .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
                 boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
-                if (correctDirection && Math.abs(dy) > Math.max(dp(42), slop * 2)
-                        && Math.abs(dy) > Math.abs(dx) * 1.12f) {
+
+                // Use the device touch slop instead of a fixed 42dp threshold.
+                // This recognizes deliberate short swipes while still rejecting taps
+                // and mostly-horizontal gestures.
+                float triggerDistance = Math.max(dp(18), slop * 1.25f);
+                if (correctDirection && Math.abs(dy) >= triggerDistance
+                        && Math.abs(dy) > Math.abs(dx) * 1.10f) {
                     openingGesture = true;
                     return true;
                 }
             }
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 openingGesture = false;
+                activePointerId = MotionEvent.INVALID_POINTER_ID;
+            } else if (action == MotionEvent.ACTION_POINTER_UP
+                    && event.getPointerId(event.getActionIndex()) == activePointerId) {
+                openingGesture = false;
+                activePointerId = MotionEvent.INVALID_POINTER_ID;
             }
             return false;
         }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
-            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_UP) {
                 boolean open = openingGesture;
+                float dy = event.getY() - startY;
+                int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
+                        .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
+                boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
+                float triggerDistance = Math.max(dp(18), slop * 1.25f);
                 openingGesture = false;
-                if (open && !drawerOpen) {
+                activePointerId = MotionEvent.INVALID_POINTER_ID;
+                if (open && correctDirection && Math.abs(dy) >= triggerDistance && !drawerOpen) {
                     showDrawer(true, "");
-                    return true;
                 }
-            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                return true;
+            } else if (action == MotionEvent.ACTION_CANCEL) {
                 openingGesture = false;
+                activePointerId = MotionEvent.INVALID_POINTER_ID;
+                return true;
             }
             return true;
         }
