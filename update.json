@@ -1,6 +1,6 @@
 {
-  "versionCode": 17,
-  "versionName": "3.3.7",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.7/MotorollHome.apk",
-  "releaseNotes": "Motoroll Update Center integrado. Corrección del scroll horizontal Samsung: páginas ajustadas al ancho real y gestos horizontales reconocidos desde la cuadrícula. Descarga e instalación guiada de actualizaciones."
+  "versionCode": 18,
+  "versionName": "3.3.8",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.8/MotorollHome.apk",
+  "releaseNotes": "Corrección de fondos personalizados: las fotos elegidas se copian al almacenamiento privado de Motoroll para que sigan disponibles tras cerrar la galería o reiniciar. Se mantiene la aplicación opcional al fondo del teléfono."
 }
