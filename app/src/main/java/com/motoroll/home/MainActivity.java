@@ -2586,7 +2586,11 @@ public class MainActivity extends Activity {
             if (action == MotionEvent.ACTION_DOWN) {
                 downTouchX = event.getX();
                 downTouchY = event.getY();
+                startScrollX = getScrollX();
                 draggingHorizontally = false;
+                recycleVelocityTracker();
+                velocityTracker = VelocityTracker.obtain();
+                velocityTracker.addMovement(event);
                 return false;
             }
             if (action == MotionEvent.ACTION_MOVE) {
