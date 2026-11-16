@@ -82,7 +82,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Motoroll Home 3.3.11 - customizable weather tile and personal note styling.
+ * Motoroll Home 3.3.12 - customizable weather tile and personal note styling.
  * Native views only: optional on-demand weather, no analytics, no background service, and no third-party UI library.
  * App drawer opens with a downward swipe. Drawer scrolling is handled by its own container;
  * it closes only with the close button or Android Back.
@@ -2302,7 +2302,7 @@ public class MainActivity extends Activity {
         applyLongPressCustomization(clock);
         boolean weatherBesideClock = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getBoolean(PREF_WEATHER_ENABLED, false)
-                && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) == 1;
+                && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) != 0;
         if (weatherBesideClock) {
             // Weather position is independent from clock alignment; weighted clock space prevents overlap.
             LinearLayout clockAndWeather = row();
