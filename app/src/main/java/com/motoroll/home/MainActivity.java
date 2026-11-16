@@ -1200,6 +1200,7 @@ public class MainActivity extends Activity {
                         case "weather_toggle": toggleWeather(); break;
                         case "weather_city": chooseWeatherCity(false); break;
                         case "weather_style": chooseWeatherStyle(); break;
+                        case "weather_position": chooseWeatherPosition(); break;
                         case "home_search": toggleHomeSearch(); break;
                         case "widgets": chooseWidgets(); break;
                         case "home_note": chooseHomeNote(); break;
@@ -1997,6 +1998,64 @@ public class MainActivity extends Activity {
         return null;
     }
 
+    private void chooseWeatherPosition() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        int selected = prefs.getInt(PREF_WEATHER_POSITION, 0);
+        new AlertDialog.Builder(this)
+                .setTitle(tr("Posición del widget del clima", "Weather widget position", "Posição do widget do clima"))
+                .setSingleChoiceItems(new String[]{
+                        tr("Debajo del reloj", "Below the clock", "Abaixo do relógio"),
+                        tr("Al lado del reloj · cuadrado", "Beside the clock · square", "Ao lado do relógio · quadrado")
+                }, selected, (dialog, which) -> {
+                    prefs.edit().putInt(PREF_WEATHER_POSITION, which).apply();
+                    dialog.dismiss();
+                    showHome(true);
+                })
+                .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null).show();
+    }
+
+    private void addSquareWeatherWidget(LinearLayout parent) {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        LinearLayout card = column();
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(7), dp(7), dp(7), dp(7));
+        card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF31598C, 0xFF172943, 0xFF121D31}));
+        card.setElevation(dp(3));
+
+        TextView place = text(prefs.getString(PREF_WEATHER_PLACE, prefs.getString(PREF_WEATHER_CITY, "")), 8, 0xFFDCEBFF, true);
+        place.setGravity(Gravity.CENTER);
+        place.setMaxLines(1);
+        place.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        weatherPlaceView = place;
+        card.addView(place, lp(-1, -2));
+
+        LinearLayout middle = row();
+        middle.setGravity(Gravity.CENTER);
+        TextView icon = text(weatherSymbol(prefs.getString(PREF_WEATHER_DESCRIPTION, "")), 20, 0xFFFFE5A8, false);
+        weatherIconView = icon;
+        middle.addView(icon, lp(25, 29));
+        TextView temperature = text(prefs.getString(PREF_WEATHER_TEMP, "--°C"), 20, Color.WHITE, true);
+        temperature.setTypeface(android.graphics.Typeface.create("sans-serif-light", 0));
+        weatherTemperatureView = temperature;
+        middle.addView(temperature, lp(-2, -2));
+        card.addView(middle, withTop(lp(-1, -2), 2));
+
+        TextView condition = text(prefs.getString(PREF_WEATHER_DESCRIPTION, tr("Consultando…", "Loading…", "Consultando…")), 8, 0xFFD3E0F4, false);
+        condition.setGravity(Gravity.CENTER);
+        condition.setMaxLines(1);
+        condition.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        weatherConditionView = condition;
+        card.addView(condition, withTop(lp(-1, -2), 1));
+
+        card.setOnClickListener(v -> chooseWeatherCity(false));
+        card.setOnLongClickListener(v -> { chooseWeatherPosition(); return true; });
+        card.setContentDescription(tr("Widget del clima. Toca para cambiar ciudad", "Weather widget. Tap to change city", "Widget do clima. Toque para mudar cidade"));
+        LinearLayout.LayoutParams params = lp(94, 94);
+        params.topMargin = dp(7);
+        parent.addView(card, params);
+    }
+
     private void addWeatherCard(LinearLayout content) {
         if (getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_STYLE, 0) == 1) {
             addOneUiWeatherCard(content);
@@ -2149,26 +2208,32 @@ public class MainActivity extends Activity {
         }
         clock.setGravity(clockGravity());
         applyLongPressCustomization(clock);
-        if (!hasHomeNote) {
+        boolean weatherBesideClock = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_WEATHER_ENABLED, false)
+                && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) == 1;
+        if (!hasHomeNote && !weatherBesideClock) {
             content.addView(clock, withTop(lp(-1, -2), 7));
         } else {
-            // Notes live beside the clock, with no separate card or reserved empty panel.
+            // Optional personal note and square weather tile can sit beside the clock.
             LinearLayout clockAndNote = row();
             clockAndNote.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams clockParams = new LinearLayout.LayoutParams(0, -2, 1f);
             clockParams.topMargin = dp(7);
             clockAndNote.addView(clock, clockParams);
-            TextView note = text(homeNote, 12, CYAN, true);
-            note.setMaxLines(2);
-            note.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            note.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-            note.setMaxWidth(dp(118));
-            note.setContentDescription(tr("Nota personal", "Personal note", "Nota pessoal"));
-            note.setOnLongClickListener(v -> { chooseHomeNote(); return true; });
-            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-2, -2);
-            noteParams.leftMargin = dp(7);
-            noteParams.topMargin = dp(7);
-            clockAndNote.addView(note, noteParams);
+            if (hasHomeNote) {
+                TextView note = text(homeNote, 12, CYAN, true);
+                note.setMaxLines(2);
+                note.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                note.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+                note.setMaxWidth(dp(weatherBesideClock ? 72 : 118));
+                note.setContentDescription(tr("Nota personal", "Personal note", "Nota pessoal"));
+                note.setOnLongClickListener(v -> { chooseHomeNote(); return true; });
+                LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(-2, -2);
+                noteParams.leftMargin = dp(7);
+                noteParams.topMargin = dp(7);
+                clockAndNote.addView(note, noteParams);
+            }
+            if (weatherBesideClock) addSquareWeatherWidget(clockAndNote);
             content.addView(clockAndNote, lp(-1, -2));
         }
 
@@ -2185,7 +2250,9 @@ public class MainActivity extends Activity {
         content.addView(date, withTop(lp(-1, -2), 1));
         if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_BATTERY_WIDGET, false)) addBatteryWidget(content);
         if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_WEATHER_ENABLED, false)) {
-            addWeatherCard(content);
+            if (getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) == 0) {
+                addWeatherCard(content);
+            }
         } else {
             weatherStatus = null;
         }
@@ -2745,6 +2812,19 @@ public class MainActivity extends Activity {
             setClickable(true);
         }
 
+        private float triggerDistance() {
+            return Math.max(dp(14), slop);
+        }
+
+        private boolean isOpeningDirection(float dx, float dy) {
+            int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
+            boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
+            return correctDirection
+                    && Math.abs(dy) >= triggerDistance()
+                    && Math.abs(dy) > Math.abs(dx) * 1.22f;
+        }
+
         @Override public boolean onInterceptTouchEvent(MotionEvent event) {
             if (drawerOpen) return false;
             int action = event.getActionMasked();
@@ -2760,25 +2840,23 @@ public class MainActivity extends Activity {
                 if (index < 0) return false;
                 float dx = event.getX(index) - startX;
                 float dy = event.getY(index) - startY;
-                int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
-                        .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
-                boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
-
-                // Use the device touch slop instead of a fixed 42dp threshold.
-                // This recognizes deliberate short swipes while still rejecting taps
-                // and mostly-horizontal gestures.
-                float triggerDistance = Math.max(dp(18), slop * 1.25f);
-                if (correctDirection && Math.abs(dy) >= triggerDistance
-                        && Math.abs(dy) > Math.abs(dx) * 1.10f) {
+                if (isOpeningDirection(dx, dy)) {
                     openingGesture = true;
                     return true;
                 }
             }
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                openingGesture = false;
-                activePointerId = MotionEvent.INVALID_POINTER_ID;
-            } else if (action == MotionEvent.ACTION_POINTER_UP
+            if (action == MotionEvent.ACTION_POINTER_UP
                     && event.getPointerId(event.getActionIndex()) == activePointerId) {
+                int replacement = event.getActionIndex() == 0 ? 1 : 0;
+                if (replacement < event.getPointerCount()) {
+                    startX = event.getX(replacement);
+                    startY = event.getY(replacement);
+                    activePointerId = event.getPointerId(replacement);
+                } else {
+                    openingGesture = false;
+                    activePointerId = MotionEvent.INVALID_POINTER_ID;
+                }
+            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 openingGesture = false;
                 activePointerId = MotionEvent.INVALID_POINTER_ID;
             }
@@ -2788,19 +2866,18 @@ public class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event) {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_UP) {
-                boolean open = openingGesture;
-                float dy = event.getY() - startY;
-                int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
-                        .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
-                boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
-                float triggerDistance = Math.max(dp(18), slop * 1.25f);
+                int index = activePointerId == MotionEvent.INVALID_POINTER_ID
+                        ? event.getActionIndex() : event.findPointerIndex(activePointerId);
+                if (index < 0) index = event.getActionIndex();
+                float dx = event.getX(index) - startX;
+                float dy = event.getY(index) - startY;
+                boolean open = openingGesture && isOpeningDirection(dx, dy);
                 openingGesture = false;
                 activePointerId = MotionEvent.INVALID_POINTER_ID;
-                if (open && correctDirection && Math.abs(dy) >= triggerDistance && !drawerOpen) {
-                    showDrawer(true, "");
-                }
+                if (open && !drawerOpen) showDrawer(true, "");
                 return true;
-            } else if (action == MotionEvent.ACTION_CANCEL) {
+            }
+            if (action == MotionEvent.ACTION_CANCEL) {
                 openingGesture = false;
                 activePointerId = MotionEvent.INVALID_POINTER_ID;
                 return true;
