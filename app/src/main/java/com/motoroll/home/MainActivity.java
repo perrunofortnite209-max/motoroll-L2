@@ -59,6 +59,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -576,6 +578,34 @@ public class MainActivity extends Activity {
         catch (RuntimeException ignored) { return null; }
     }
 
+    // Copy selected images into Motoroll's private storage. Some gallery/cloud providers
+    // return temporary content:// grants that stop working after the picker closes or a reboot.
+    // An app-owned file keeps the wallpaper available reliably across launcher restarts.
+    private Uri persistWallpaperImage(Uri source) throws Exception {
+        File target = new File(getFilesDir(), "motoroll_custom_wallpaper.img");
+        File temp = new File(getFilesDir(), "motoroll_custom_wallpaper.tmp");
+        try (InputStream input = getContentResolver().openInputStream(source);
+             FileOutputStream output = new FileOutputStream(temp, false)) {
+            if (input == null) throw new IllegalStateException("Selected image could not be opened");
+            byte[] buffer = new byte[32 * 1024];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                if (count > 0) output.write(buffer, 0, count);
+            }
+            output.flush();
+            output.getFD().sync();
+        }
+        if (target.exists() && !target.delete()) {
+            temp.delete();
+            throw new IllegalStateException("Could not replace previous wallpaper");
+        }
+        if (!temp.renameTo(target)) {
+            temp.delete();
+            throw new IllegalStateException("Could not save wallpaper in Motoroll storage");
+        }
+        return Uri.fromFile(target);
+    }
+
     private Bitmap decodeWallpaper(Uri uri) {
         try {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
@@ -640,21 +670,44 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    @Override
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_WALLPAPER || resultCode != RESULT_OK || data == null || data.getData() == null) return;
-        Uri uri = data.getData();
+
+        Uri selectedUri = data.getData();
+        Toast.makeText(this, tr("Guardando imagen…", "Saving image…", "Salvando imagem…"), Toast.LENGTH_SHORT).show();
         try {
-            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } catch (Exception ignored) {
-            // Not every OEM document provider grants persistable access.
+            wallpaperExecutor.execute(() -> {
+                try {
+                    Uri savedUri = persistWallpaperImage(selectedUri);
+                    mainHandler.post(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                                .putString(PREF_WALLPAPER_URI, savedUri.toString())
+                                .putBoolean(PREF_FORCE_MOTOROLL_BG, false).apply();
+                        wallpaperBitmap = null;
+                        cachedSystemWallpaper = null;
+                        cachedSystemWallpaperId = -1;
+                        showHome(false);
+                        showPhoneWallpaperChoices(savedUri);
+                    });
+                } catch (Exception error) {
+                    Log.e(TAG, "Could not persist selected Motoroll wallpaper", error);
+                    mainHandler.post(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            Toast.makeText(this, tr("No se pudo guardar esa foto. Prueba con otra imagen.",
+                                    "Could not save that photo. Try another image.",
+                                    "Não foi possível salvar essa foto. Tente outra imagem."), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            });
+        } catch (RuntimeException rejected) {
+            Log.e(TAG, "Wallpaper storage worker unavailable", rejected);
+            Toast.makeText(this, tr("No se pudo guardar la imagen.", "Could not save the image.", "Não foi possível salvar a imagem."), Toast.LENGTH_LONG).show();
         }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_WALLPAPER_URI, uri.toString())
-                .putBoolean(PREF_FORCE_MOTOROLL_BG, false).apply();
-        wallpaperBitmap = null;
-        showHome(false);
-        showPhoneWallpaperChoices(uri);
     }
 
     private void showPhoneWallpaperChoices(Uri uri) {
