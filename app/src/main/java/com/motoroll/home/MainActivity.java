@@ -52,7 +52,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Motoroll Home 3.0 - lightweight, independent HOME launcher.
+ * Motoroll Home 3.0.3 - lightweight, independent HOME launcher.
  * Native views only: no network, analytics, background service, or third-party UI library.
  * App drawer opens with a downward swipe on the home screen. An upward swipe closes it.
  */
@@ -107,7 +107,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        configureWindow();
         try {
             loadApps();
             showHome(false);
@@ -134,20 +133,37 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Apply system-bar styling only after setContentView() has created the DecorView.
+     * Calling Window.getInsetsController() before that point can crash on some Android 16 builds
+     * because PhoneWindow has not created its DecorView yet.
+     */
     private void configureWindow() {
         Window window = getWindow();
+        if (window == null) return;
+
         window.setStatusBarColor(BG);
         window.setNavigationBarColor(BG);
         if (Build.VERSION.SDK_INT >= 29) {
             window.setStatusBarContrastEnforced(false);
             window.setNavigationBarContrastEnforced(false);
         }
-        if (Build.VERSION.SDK_INT >= 30 && window.getInsetsController() != null) {
-            window.getInsetsController().setSystemBarsAppearance(0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                            | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+
+        final View decor = window.getDecorView();
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Post until the decor is attached and its WindowInsetsController is available.
+            decor.post(() -> {
+                WindowInsetsController controller = decor.getWindowInsetsController();
+                if (controller != null) {
+                    controller.setSystemBarsAppearance(0,
+                            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+                } else {
+                    decor.setSystemUiVisibility(0);
+                }
+            });
         } else {
-            window.getDecorView().setSystemUiVisibility(0);
+            decor.setSystemUiVisibility(0);
         }
     }
 
@@ -457,6 +473,7 @@ public class MainActivity extends Activity {
         shell.addView(dock, withTop(lp(-1, 70), 10));
 
         setContentView(root);
+        configureWindow();
         shell.requestApplyInsets();
         if (animate) {
             shell.setAlpha(0.94f);
@@ -679,6 +696,7 @@ public class MainActivity extends Activity {
         panel.addView(footer, withTop(lp(-1, 22), 5));
 
         setContentView(root);
+        configureWindow();
         shell.requestApplyInsets();
         refreshDrawer(initialQuery == null ? "" : initialQuery);
         drawerSearch.addTextChangedListener(new TextWatcher() {
@@ -775,6 +793,7 @@ public class MainActivity extends Activity {
             catch (RuntimeException again) { Log.e(TAG, "Retry failed", again); }
         });
         setContentView(screen);
+        configureWindow();
     }
 
     private class AmbientBackground extends View {
