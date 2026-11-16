@@ -52,6 +52,8 @@ jobs:
           grep -q 'addPulseWidget' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'class PulseBatteryRing' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'PREF_PULSE_WIDGET' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'showPulseOptions' app/src/main/java/com/motoroll/home/MainActivity.java
+          grep -q 'togglePulseWidget' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
@@ -167,16 +169,13 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.17
-          name: Motoroll Home 3.3.17
+          tag_name: v3.3.18
+          name: Motoroll Home 3.3.18
           body: |
-            Novedad principal: Motoroll Pulse.
-            - Panel propio en la pantalla de inicio con saludo dinámico según la hora local.
-            - Indicador circular de batería con porcentaje, carga y alerta visual cuando queda poca energía.
-            - Al tocar Pulse se abren los ajustes de batería; al mantenerlo pulsado se abre Personalización.
-            - Pulse se puede activar o desactivar desde Personalización > Notas y widgets > Widgets de Motoroll.
-            - Se activa por defecto y no requiere permisos nuevos ni procesos en segundo plano.
-            - Se mantienen las opciones de clima, reloj, notas, fondos, bóveda, navegación y optimización de versiones anteriores.
+            Mejora de uso de Motoroll Pulse.
+            - Interruptor directo de activación/desactivación dentro de Personalización > Notas y widgets.
+            - Menú contextual al mantener pulsada la tarjeta para ocultarla o volver a activarla.
+            - Se conserva la opción de Widgets de Motoroll y todas las funciones anteriores.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
           overwrite_files: true
