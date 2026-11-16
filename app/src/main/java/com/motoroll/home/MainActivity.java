@@ -274,6 +274,11 @@ public class MainActivity extends Activity {
         } catch (RuntimeException error) {
             Log.e(TAG, "Could not refresh launcher apps", error);
         }
+        if (awaitingInstallPermission && Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) {
+            awaitingInstallPermission = false;
+            long id = getSharedPreferences(PREFS, MODE_PRIVATE).getLong(UPDATE_DOWNLOAD_ID, -1L);
+            if (id != -1L) installDownloadedUpdate(id);
+        }
     }
 
     /**
@@ -1822,16 +1827,6 @@ public class MainActivity extends Activity {
         } catch (Exception error) {
             Log.e(TAG, "Could not open update installer", error);
             Toast.makeText(this, tr("No se pudo abrir el instalador de Android.", "Could not open Android installer.", "Não foi possível abrir o instalador do Android."), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (awaitingInstallPermission && Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) {
-            awaitingInstallPermission = false;
-            long id = getSharedPreferences(PREFS, MODE_PRIVATE).getLong(UPDATE_DOWNLOAD_ID, -1L);
-            if (id != -1L) installDownloadedUpdate(id);
         }
     }
 
