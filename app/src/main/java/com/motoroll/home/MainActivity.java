@@ -670,7 +670,6 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    @Override
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
