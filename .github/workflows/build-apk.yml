@@ -37,6 +37,7 @@ jobs:
       - name: Verify launcher source
         shell: bash
         run: |
+          set -euo pipefail
           test -f app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q '^package com\.motoroll\.home;' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'public class MainActivity' app/src/main/java/com/motoroll/home/MainActivity.java
@@ -47,11 +48,17 @@ jobs:
       - name: Verify MainActivity
         shell: bash
         run: |
-          CLASS_FILE="$(find app/build/intermediates -type f -name 'MainActivity.class' -path '*com/motoroll/home/*' -print -quit)"
+          set -euo pipefail
+
+          CLASS_FILE="$(find app/build/intermediates -type f \
+            -name 'MainActivity.class' \
+            -path '*com/motoroll/home/*' -print -quit)"
+
           if [ -z "$CLASS_FILE" ]; then
             echo "ERROR: MainActivity.class no fue generado."
             exit 1
           fi
+
           echo "MainActivity compilada: $CLASS_FILE"
           test -s app/build/outputs/apk/debug/app-debug.apk
 
@@ -62,17 +69,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ERROR: Falta KEYSTORE_BASE64"
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "ERROR: Falta el secreto KEYSTORE_BASE64."
             exit 1
           fi
 
-          echo "$KEYSTORE_BASE64" \
-            | sed '/-----BEGIN CERTIFICATE-----/d; /-----END CERTIFICATE-----/d' \
-            | tr -d '[:space:]' \
+          printf '%s' "$KEYSTORE_BASE64" \
+            | tr -d '\r\n\t ' \
+            | sed 's/-----BEGIN CERTIFICATE-----//g; s/-----END CERTIFICATE-----//g' \
             | base64 --decode > "$RUNNER_TEMP/motoroll-release.p12"
 
-          test -s "$RUNNER_TEMP/motoroll-release.p12"
+          if [ ! -s "$RUNNER_TEMP/motoroll-release.p12" ]; then
+            echo "ERROR: El archivo PKCS12 quedó vacío."
+            exit 1
+          fi
+
+          echo "Keystore decodificado correctamente."
 
       - name: Sign APK permanently
         shell: bash
@@ -83,10 +95,20 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -z "${KEYSTORE_PASSWORD:-}" ] || \
+             [ -z "${KEY_ALIAS:-}" ] || \
+             [ -z "${KEY_PASSWORD:-}" ]; then
+            echo "ERROR: Falta uno o más secretos de firma."
+            exit 1
+          fi
+
           APK_UNSIGNED="app/build/outputs/apk/debug/app-debug.apk"
           APK_SIGNED="app/build/outputs/apk/debug/MotorollHome.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
 
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+          test -s "$APK_UNSIGNED"
+
+          "$APKSIGNER" sign \
             --ks "$RUNNER_TEMP/motoroll-release.p12" \
             --ks-type PKCS12 \
             --ks-key-alias "$KEY_ALIAS" \
@@ -95,10 +117,13 @@ jobs:
             --out "$APK_SIGNED" \
             "$APK_UNSIGNED"
 
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify \
-            --verbose --print-certs "$APK_SIGNED"
+          "$APKSIGNER" verify \
+            --verbose \
+            --print-certs \
+            "$APK_SIGNED"
 
           test -s "$APK_SIGNED"
+          echo "APK firmada y verificada correctamente."
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
