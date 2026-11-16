@@ -1,7 +1,6 @@
 package com.motoroll.home;
 
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.WallpaperManager;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -9,7 +8,6 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
-import android.os.Debug;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -61,9 +59,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.BufferedReader;
@@ -83,16 +78,12 @@ import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.Arrays;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 /**
- * Motoroll Home 3.3.19 - SafeSave, Motoroll Lab and adaptive memory profiles.
+ * Motoroll Home 3.3.17 - Motoroll Pulse dashboard and customizable home experience.
  * Native views only: optional on-demand weather, no analytics, no background service, and no third-party UI library.
  * App drawer opens with a downward swipe. Drawer scrolling is handled by its own container;
  * it closes only with the close button or Android Back.
@@ -100,10 +91,6 @@ import java.util.zip.ZipOutputStream;
 public class MainActivity extends Activity {
     private static final String TAG = "MotorollHome";
     private static final int REQUEST_WALLPAPER = 3107;
-    private static final int REQUEST_BACKUP_EXPORT = 3110;
-    private static final int REQUEST_BACKUP_IMPORT = 3111;
-    private static final long MAX_BACKUP_WALLPAPER_BYTES = 32L * 1024L * 1024L;
-    private static final int MAX_BACKUP_JSON_BYTES = 2 * 1024 * 1024;
     private static final String PREFS = "motoroll_home_prefs";
     private static final String PREF_WALLPAPER_URI = "launcher_wallpaper_uri";
     private static final String PREF_FORCE_MOTOROLL_BG = "force_motoroll_default_background";
@@ -133,7 +120,6 @@ public class MainActivity extends Activity {
     private static final String PREF_DATE_VISIBLE = "date_visible";
     private static final String PREF_BATTERY_WIDGET = "battery_widget";
     private static final String PREF_PULSE_WIDGET = "pulse_widget";
-    private static final String PREF_MEMORY_MODE = "memory_profile"; // 0 Auto, 1 RAM saver, 2 balanced
     private static final String PREF_HIDDEN_APPS = "hidden_apps";
     private static final String PREF_PROFILES = "appearance_profiles";
     private static final String PREF_HOME_NOTE = "home_note";
@@ -265,7 +251,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         try {
-            applyMemoryProfile();
             loadApps();
             boolean welcomed = getSharedPreferences(PREFS, MODE_PRIVATE)
                     .getBoolean(PREF_WELCOME_SHOWN, false);
@@ -647,10 +632,8 @@ public class MainActivity extends Activity {
                 if (in == null) return null;
                 BitmapFactory.decodeStream(in, null, bounds);
             }
-            int memoryMode = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_MEMORY_MODE, 0);
-            boolean economy = memoryMode == 1 || (memoryMode == 0 && isLowMemoryDevice());
-            int targetW = Math.max(720, Math.min(economy ? 900 : 1120, getResources().getDisplayMetrics().widthPixels));
-            int targetH = Math.max(1400, Math.min(economy ? 1950 : 2420, getResources().getDisplayMetrics().heightPixels));
+            int targetW = Math.max(720, getResources().getDisplayMetrics().widthPixels);
+            int targetH = Math.max(1400, getResources().getDisplayMetrics().heightPixels);
             int sample = 1;
             while ((bounds.outWidth / (sample * 2)) >= targetW
                     && (bounds.outHeight / (sample * 2)) >= targetH) sample *= 2;
@@ -708,14 +691,6 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_BACKUP_EXPORT) {
-            if (resultCode == RESULT_OK && data != null && data.getData() != null) exportSafeSave(data.getData());
-            return;
-        }
-        if (requestCode == REQUEST_BACKUP_IMPORT) {
-            if (resultCode == RESULT_OK && data != null && data.getData() != null) importSafeSave(data.getData());
-            return;
-        }
         if (requestCode != REQUEST_WALLPAPER || resultCode != RESULT_OK || data == null || data.getData() == null) return;
 
         Uri selectedUri = data.getData();
@@ -749,487 +724,6 @@ public class MainActivity extends Activity {
         } catch (RuntimeException rejected) {
             Log.e(TAG, "Wallpaper storage worker unavailable", rejected);
             Toast.makeText(this, tr("No se pudo guardar la imagen.", "Could not save the image.", "Não foi possível salvar a imagem."), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void showSafeSaveMenu() {
-        new AlertDialog.Builder(this)
-                .setTitle("MOTOROLL SAFESAVE")
-                .setItems(new String[]{
-                        tr("Crear copia de seguridad", "Create backup", "Criar backup"),
-                        tr("Restaurar copia de seguridad", "Restore backup", "Restaurar backup")
-                }, (dialog, which) -> {
-                    if (which == 0) createSafeSaveDocument();
-                    else openSafeSaveDocument();
-                })
-                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
-                .show();
-    }
-
-    private void createSafeSaveDocument() {
-        try {
-            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/zip");
-            intent.putExtra(Intent.EXTRA_TITLE, "Motoroll_SafeSave_" + System.currentTimeMillis() + ".zip");
-            startActivityForResult(intent, REQUEST_BACKUP_EXPORT);
-        } catch (Exception error) {
-            Toast.makeText(this, tr("No se pudo abrir el selector para guardar", "Could not open the save picker", "Não foi possível abrir o seletor para salvar"), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void openSafeSaveDocument() {
-        try {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed"});
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult(intent, REQUEST_BACKUP_IMPORT);
-        } catch (Exception error) {
-            Toast.makeText(this, tr("No se pudo abrir el selector de copias", "Could not open the backup picker", "Não foi possível abrir o seletor de backups"), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private boolean isBackupExcludedKey(String key) {
-        return key == null || key.startsWith("update_")
-                || key.startsWith("pending_")
-                || key.equals(PREF_PENDING_OEM_WALLPAPER)
-                || key.equals(PREF_PENDING_OEM_WALLPAPER_ID);
-    }
-
-    private boolean isSafeSavePreferenceKey(String key) {
-        if (isBackupExcludedKey(key)) return false;
-        return key.startsWith(PREF_DOCK_PREFIX) || key.startsWith("profile_")
-                || key.equals(PREF_WALLPAPER_URI)
-                || key.equals(PREF_FORCE_MOTOROLL_BG)
-                || key.equals(PREF_DOCK_COUNT)
-                || key.equals(PREF_FAVORITE_PACKAGES)
-                || key.equals(PREF_DRAWER_SWIPE_DIRECTION)
-                || key.equals(PREF_CLOCK_POSITION)
-                || key.equals(PREF_CLOCK_STYLE)
-                || key.equals(PREF_ICON_SIZE)
-                || key.equals(PREF_WELCOME_SHOWN)
-                || key.equals(PREF_DRAWER_MODE)
-                || key.equals(PREF_LANGUAGE)
-                || key.equals(PREF_WEATHER_ENABLED)
-                || key.equals(PREF_WEATHER_CITY)
-                || key.equals(PREF_WEATHER_TEMP)
-                || key.equals(PREF_WEATHER_DESCRIPTION)
-                || key.equals(PREF_WEATHER_PLACE)
-                || key.equals(PREF_WEATHER_FETCHED)
-                || key.equals(PREF_WEATHER_STYLE)
-                || key.equals(PREF_WEATHER_POSITION)
-                || key.equals(PREF_WEATHER_SHAPE)
-                || key.equals(PREF_HOME_NOTE_COLOR)
-                || key.equals(PREF_HOME_NOTE_SIZE)
-                || key.equals(PREF_ICON_SHAPE)
-                || key.equals(PREF_ANIMATION_MODE)
-                || key.equals(PREF_DATE_VISIBLE)
-                || key.equals(PREF_BATTERY_WIDGET)
-                || key.equals(PREF_PULSE_WIDGET)
-                || key.equals(PREF_MEMORY_MODE)
-                || key.equals(PREF_HIDDEN_APPS)
-                || key.equals(PREF_PROFILES)
-                || key.equals(PREF_HOME_NOTE)
-                || key.equals(PREF_HOME_SEARCH_VISIBLE)
-                || key.equals(PREF_HOME_NOTE_X)
-                || key.equals(PREF_HOME_NOTE_Y);
-    }
-
-    private JSONObject createSafeSaveManifest() throws Exception {
-        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        File wallpaper = new File(getFilesDir(), "motoroll_custom_wallpaper.img");
-        boolean includeWallpaper = wallpaper.isFile() && wallpaper.length() > 0
-                && wallpaper.length() <= MAX_BACKUP_WALLPAPER_BYTES;
-        JSONObject values = new JSONObject();
-        for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
-            String key = entry.getKey();
-            if (!isSafeSavePreferenceKey(key)) continue;
-            Object value = entry.getValue();
-            JSONObject item = new JSONObject();
-            if (value instanceof Boolean) {
-                item.put("type", "boolean"); item.put("value", value);
-            } else if (value instanceof Integer) {
-                item.put("type", "int"); item.put("value", value);
-            } else if (value instanceof Long) {
-                item.put("type", "long"); item.put("value", value);
-            } else if (value instanceof Float) {
-                item.put("type", "float"); item.put("value", value);
-            } else if (value instanceof String) {
-                item.put("type", "string");
-                String stringValue = (String) value;
-                if (PREF_WALLPAPER_URI.equals(key) && !includeWallpaper) stringValue = "";
-                if (stringValue.length() > 262144) continue;
-                item.put("value", stringValue);
-            } else if (value instanceof Set) {
-                item.put("type", "string_set");
-                JSONArray array = new JSONArray();
-                for (Object member : (Set<?>) value) {
-                    if (member instanceof String) array.put(member);
-                }
-                item.put("value", array);
-            } else {
-                continue;
-            }
-            values.put(key, item);
-        }
-        JSONObject root = new JSONObject();
-        root.put("format", "motoroll-home-safesave");
-        root.put("schemaVersion", 1);
-        root.put("appVersion", "3.3.19");
-        root.put("createdAt", System.currentTimeMillis());
-        root.put("wallpaperIncluded", includeWallpaper);
-        root.put("preferences", values);
-        return root;
-    }
-
-    private void exportSafeSave(Uri destination) {
-        final JSONObject manifest;
-        try {
-            manifest = createSafeSaveManifest();
-        } catch (Exception error) {
-            Toast.makeText(this, tr("No se pudo preparar la copia", "Could not prepare backup", "Não foi possível preparar o backup"), Toast.LENGTH_LONG).show();
-            return;
-        }
-        Toast.makeText(this, tr("Creando copia de seguridad…", "Creating backup…", "Criando backup…"), Toast.LENGTH_SHORT).show();
-        try {
-            wallpaperExecutor.execute(() -> {
-                String failure = null;
-                try (OutputStream raw = getContentResolver().openOutputStream(destination);
-                     ZipOutputStream zip = new ZipOutputStream(raw)) {
-                    if (raw == null) throw new IllegalStateException("Backup destination unavailable");
-                    byte[] json = manifest.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                    if (json.length > MAX_BACKUP_JSON_BYTES) throw new IllegalStateException("Backup settings are too large");
-                    zip.putNextEntry(new ZipEntry("motoroll_backup.json"));
-                    zip.write(json);
-                    zip.closeEntry();
-
-                    if (manifest.optBoolean("wallpaperIncluded", false)) {
-                        File wallpaper = new File(getFilesDir(), "motoroll_custom_wallpaper.img");
-                        if (!wallpaper.isFile() || wallpaper.length() > MAX_BACKUP_WALLPAPER_BYTES) {
-                            throw new IllegalStateException("Wallpaper changed while backup was being created");
-                        }
-                        zip.putNextEntry(new ZipEntry("motoroll_custom_wallpaper.img"));
-                        try (InputStream input = new FileInputStream(wallpaper)) {
-                            copyStreamLimited(input, zip, MAX_BACKUP_WALLPAPER_BYTES);
-                        }
-                        zip.closeEntry();
-                    }
-                    zip.finish();
-                } catch (Exception error) {
-                    Log.e(TAG, "SafeSave export failed", error);
-                    failure = error.getMessage();
-                }
-                final String result = failure;
-                mainHandler.post(() -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    Toast.makeText(this, result == null
-                            ? tr("Copia de Motoroll guardada", "Motoroll backup saved", "Backup do Motoroll salvo")
-                            : tr("No se pudo guardar la copia", "Could not save backup", "Não foi possível salvar o backup"),
-                            Toast.LENGTH_LONG).show();
-                });
-            });
-        } catch (RuntimeException rejected) {
-            Toast.makeText(this, tr("El servicio de copia no está disponible", "Backup worker unavailable", "Serviço de backup indisponível"), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void importSafeSave(Uri source) {
-        Toast.makeText(this, tr("Comprobando copia de seguridad…", "Checking backup…", "Verificando backup…"), Toast.LENGTH_SHORT).show();
-        try {
-            wallpaperExecutor.execute(() -> {
-                File wallpaperTemp = null;
-                try {
-                    JSONObject manifest = null;
-                    boolean wallpaperFound = false;
-                    boolean settingsFound = false;
-                    try (InputStream raw = getContentResolver().openInputStream(source);
-                         ZipInputStream zip = new ZipInputStream(raw)) {
-                        if (raw == null) throw new IllegalStateException("Backup file unavailable");
-                        ZipEntry entry;
-                        while ((entry = zip.getNextEntry()) != null) {
-                            if ("motoroll_backup.json".equals(entry.getName())) {
-                                if (settingsFound) throw new IllegalArgumentException("Duplicate settings entry");
-                                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                                copyStreamLimited(zip, bytes, MAX_BACKUP_JSON_BYTES);
-                                manifest = new JSONObject(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
-                                settingsFound = true;
-                            } else if ("motoroll_custom_wallpaper.img".equals(entry.getName())) {
-                                if (wallpaperFound) throw new IllegalArgumentException("Duplicate wallpaper entry");
-                                wallpaperTemp = File.createTempFile("motoroll_restore_", ".img", getFilesDir());
-                                try (FileOutputStream output = new FileOutputStream(wallpaperTemp, false)) {
-                                    copyStreamLimited(zip, output, MAX_BACKUP_WALLPAPER_BYTES);
-                                    output.flush();
-                                    output.getFD().sync();
-                                }
-                                wallpaperFound = wallpaperTemp.length() > 0;
-                            } else {
-                                throw new IllegalArgumentException("Unexpected SafeSave archive entry");
-                            }
-                            zip.closeEntry();
-                        }
-                    }
-                    validateSafeSaveManifest(manifest, wallpaperFound);
-                    final JSONObject checkedManifest = manifest;
-                    final File checkedWallpaper = wallpaperFound ? wallpaperTemp : null;
-                    mainHandler.post(() -> {
-                        if (isFinishing() || isDestroyed()) {
-                            if (checkedWallpaper != null) checkedWallpaper.delete();
-                            return;
-                        }
-                        try {
-                            restoreSafeSavePreferences(checkedManifest, checkedWallpaper);
-                            wallpaperBitmap = null;
-                            cachedSystemWallpaper = null;
-                            cachedSystemWallpaperId = -1;
-                            applyMemoryProfile();
-                            showHome(false);
-                            Toast.makeText(this, tr("Copia restaurada correctamente", "Backup restored successfully", "Cópia restaurada com sucesso"), Toast.LENGTH_LONG).show();
-                        } catch (Exception error) {
-                            Log.e(TAG, "SafeSave restore failed", error);
-                            Toast.makeText(this, tr("No se pudo restaurar la copia", "Could not restore backup", "Não foi possível restaurar o backup"), Toast.LENGTH_LONG).show();
-                        }
-                    });
-                    wallpaperTemp = null;
-                } catch (Exception error) {
-                    Log.e(TAG, "SafeSave import rejected", error);
-                    if (wallpaperTemp != null) wallpaperTemp.delete();
-                    mainHandler.post(() -> {
-                        if (!isFinishing() && !isDestroyed()) {
-                            Toast.makeText(this, tr("La copia no es válida o está dañada", "Backup is invalid or damaged", "O backup é inválido ou está danificado"), Toast.LENGTH_LONG).show();
-                        }
-                    });
-                }
-            });
-        } catch (RuntimeException rejected) {
-            Toast.makeText(this, tr("El servicio de restauración no está disponible", "Restore worker unavailable", "Serviço de restauração indisponível"), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void validateSafeSaveManifest(JSONObject manifest, boolean wallpaperFound) throws Exception {
-        if (manifest == null || !"motoroll-home-safesave".equals(manifest.optString("format"))
-                || manifest.optInt("schemaVersion", -1) != 1) {
-            throw new IllegalArgumentException("Unsupported SafeSave format");
-        }
-        if (manifest.optBoolean("wallpaperIncluded", false) != wallpaperFound) {
-            throw new IllegalArgumentException("Backup wallpaper data is incomplete");
-        }
-        JSONObject values = manifest.optJSONObject("preferences");
-        if (values == null || values.length() > 512) throw new IllegalArgumentException("Invalid settings list");
-        JSONArray names = values.names();
-        if (names == null) return;
-        for (int i = 0; i < names.length(); i++) {
-            String key = names.getString(i);
-            if (!isSafeSavePreferenceKey(key)) continue;
-            JSONObject item = values.optJSONObject(key);
-            if (item == null) throw new IllegalArgumentException("Invalid preference item");
-            String type = item.optString("type");
-            if (!Arrays.asList("boolean", "int", "long", "float", "string", "string_set").contains(type)) {
-                throw new IllegalArgumentException("Invalid preference type");
-            }
-            if ("string".equals(type) && item.optString("value", "").length() > 262144) {
-                throw new IllegalArgumentException("Preference string too large");
-            }
-            if ("string_set".equals(type) && item.optJSONArray("value") == null) {
-                throw new IllegalArgumentException("Invalid preference set");
-            }
-        }
-    }
-
-    private void restoreSafeSavePreferences(JSONObject manifest, File importedWallpaper) throws Exception {
-        File target = new File(getFilesDir(), "motoroll_custom_wallpaper.img");
-        File previous = new File(getFilesDir(), "motoroll_custom_wallpaper.restore_old");
-        boolean hadPrevious = target.isFile();
-        if (previous.exists()) previous.delete();
-        if (hadPrevious && !target.renameTo(previous)) throw new IllegalStateException("Could not preserve current wallpaper");
-        if (importedWallpaper != null && !importedWallpaper.renameTo(target)) {
-            if (hadPrevious) previous.renameTo(target);
-            throw new IllegalStateException("Could not install restored wallpaper");
-        }
-
-        JSONObject values = manifest.getJSONObject("preferences");
-        SharedPreferences.Editor edit = getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear();
-        JSONArray names = values.names();
-        if (names != null) {
-            for (int i = 0; i < names.length(); i++) {
-                String key = names.getString(i);
-                if (!isSafeSavePreferenceKey(key) || PREF_WALLPAPER_URI.equals(key)) continue;
-                JSONObject item = values.getJSONObject(key);
-                String type = item.getString("type");
-                if ("boolean".equals(type)) edit.putBoolean(key, item.getBoolean("value"));
-                else if ("int".equals(type)) edit.putInt(key, item.getInt("value"));
-                else if ("long".equals(type)) edit.putLong(key, item.getLong("value"));
-                else if ("float".equals(type)) edit.putFloat(key, (float) item.getDouble("value"));
-                else if ("string".equals(type)) edit.putString(key, item.getString("value"));
-                else if ("string_set".equals(type)) {
-                    JSONArray array = item.getJSONArray("value");
-                    Set<String> set = new HashSet<>();
-                    for (int j = 0; j < array.length(); j++) set.add(array.getString(j));
-                    edit.putStringSet(key, set);
-                }
-            }
-        }
-        edit.putBoolean(PREF_WELCOME_SHOWN, true);
-        if (importedWallpaper != null || target.isFile()) edit.putString(PREF_WALLPAPER_URI, Uri.fromFile(target).toString());
-        else edit.remove(PREF_WALLPAPER_URI);
-        edit.remove(PREF_PENDING_OEM_WALLPAPER).remove(PREF_PENDING_OEM_WALLPAPER_ID);
-        if (!edit.commit()) {
-            if (target.exists()) target.delete();
-            if (hadPrevious) previous.renameTo(target);
-            throw new IllegalStateException("Could not save restored preferences");
-        }
-        if (previous.exists()) previous.delete();
-    }
-
-    private void copyStreamLimited(InputStream input, OutputStream output, long maxBytes) throws Exception {
-        byte[] buffer = new byte[16 * 1024];
-        long total = 0;
-        int count;
-        while ((count = input.read(buffer)) != -1) {
-            total += count;
-            if (total > maxBytes) throw new IllegalArgumentException("Archive entry exceeds allowed size");
-            output.write(buffer, 0, count);
-        }
-    }
-
-    private void showSmartDrawerMenu() {
-        new AlertDialog.Builder(this)
-                .setTitle("SMART DRAWER")
-                .setItems(new String[]{
-                        tr("Diseño vertical u horizontal", "Vertical or horizontal layout", "Layout vertical ou horizontal"),
-                        tr("Aplicaciones ocultas", "Hidden apps", "Aplicativos ocultos"),
-                        tr("Gesto para abrir la bóveda", "Drawer opening gesture", "Gesto para abrir a gaveta")
-                }, (dialog, which) -> {
-                    if (which == 0) chooseDrawerMode();
-                    else if (which == 1) chooseHiddenApps();
-                    else chooseDrawerSwipeDirection();
-                })
-                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
-                .show();
-    }
-
-    private void showMotorollStudioMenu() {
-        new AlertDialog.Builder(this)
-                .setTitle("MOTOROLL STUDIO")
-                .setItems(new String[]{
-                        tr("Perfiles de apariencia", "Appearance profiles", "Perfis de aparência"),
-                        tr("Fondo y ambiente", "Wallpaper and ambience", "Papel de parede e ambiente"),
-                        tr("Forma y tamaño de iconos", "Icon shape and size", "Forma e tamanho dos ícones"),
-                        tr("Estilo de notas", "Note styling", "Estilo das notas")
-                }, (dialog, which) -> {
-                    if (which == 0) manageAppearanceProfiles();
-                    else if (which == 1) chooseWallpaper();
-                    else if (which == 2) chooseStudioIconOptions();
-                    else chooseHomeNoteStyle();
-                })
-                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
-                .show();
-    }
-
-    private void chooseStudioIconOptions() {
-        new AlertDialog.Builder(this)
-                .setTitle(tr("Iconos de Motoroll Studio", "Motoroll Studio icons", "Ícones do Motoroll Studio"))
-                .setItems(new String[]{
-                        tr("Forma de iconos", "Icon shape", "Forma dos ícones"),
-                        tr("Tamaño de iconos", "Icon size", "Tamanho dos ícones")
-                }, (dialog, which) -> {
-                    if (which == 0) chooseIconShape();
-                    else chooseIconSize();
-                })
-                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
-                .show();
-    }
-
-    private String memoryProfileLabel(int mode) {
-        if (mode == 1) return tr("Memoria: ahorro RAM ✓", "Memory: RAM saver ✓", "Memória: economia de RAM ✓");
-        if (mode == 2) return tr("Memoria: equilibrado ✓", "Memory: balanced ✓", "Memória: equilibrada ✓");
-        return tr("Memoria: automático ✓", "Memory: automatic ✓", "Memória: automática ✓");
-    }
-
-    private boolean isLowMemoryDevice() {
-        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        return manager != null && (manager.isLowRamDevice() || manager.getMemoryClass() <= 256);
-    }
-
-    private void applyMemoryProfile() {
-        int mode = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_MEMORY_MODE, 0);
-        int limit;
-        if (mode == 1) limit = 32;
-        else if (mode == 2) limit = 112;
-        else limit = isLowMemoryDevice() ? 40 : 72;
-        synchronized (appIconLock) {
-            appIconCache.resize(limit);
-        }
-    }
-
-    private void chooseMemoryProfile() {
-        int selected = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_MEMORY_MODE, 0);
-        String[] choices = {
-                tr("Automático · se adapta al teléfono", "Automatic · adapts to phone", "Automático · adapta-se ao telefone"),
-                tr("Ahorro RAM · caché pequeña y fondos ligeros", "RAM saver · smaller cache and lighter wallpapers", "Economia de RAM · cache menor e fundos leves"),
-                tr("Equilibrado · caché amplia", "Balanced · larger cache", "Equilibrado · cache maior")
-        };
-        new AlertDialog.Builder(this)
-                .setTitle(tr("Perfil de memoria", "Memory profile", "Perfil de memória"))
-                .setSingleChoiceItems(choices, selected, (dialog, which) -> {
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt(PREF_MEMORY_MODE, which).apply();
-                    applyMemoryProfile();
-                    wallpaperBitmap = null;
-                    dialog.dismiss();
-                    showHome(false);
-                    Toast.makeText(this, memoryProfileLabel(which), Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
-                .show();
-    }
-
-    private String megabytes(long bytes) {
-        return Math.max(0L, bytes / (1024L * 1024L)) + " MB";
-    }
-
-    private void showMemoryStatus() {
-        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
-        if (manager != null) manager.getMemoryInfo(info);
-        Runtime runtime = Runtime.getRuntime();
-        long javaUsed = runtime.totalMemory() - runtime.freeMemory();
-        long processPss = Debug.getPss() * 1024L;
-        int cacheSize;
-        int cacheMax;
-        synchronized (appIconLock) {
-            cacheSize = appIconCache.size();
-            cacheMax = appIconCache.maxSize();
-        }
-        int mode = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_MEMORY_MODE, 0);
-        String report = tr("RAM del sistema disponible: ", "Available system RAM: ", "RAM do sistema disponível: ")
-                + megabytes(info.availMem) + System.lineSeparator()
-                + tr("RAM total del sistema: ", "Total system RAM: ", "RAM total do sistema: ") + megabytes(info.totalMem) + System.lineSeparator()
-                + tr("Motoroll (PSS aproximado): ", "Motoroll (approx. PSS): ", "Motoroll (PSS aproximado): ") + megabytes(processPss) + System.lineSeparator()
-                + tr("Heap Java usado / máximo: ", "Java heap used / max: ", "Heap Java usado / máximo: ")
-                + megabytes(javaUsed) + " / " + megabytes(runtime.maxMemory()) + System.lineSeparator()
-                + tr("Caché de iconos: ", "Icon cache: ", "Cache de ícones: ") + cacheSize + " / " + cacheMax + System.lineSeparator()
-                + tr("Aplicaciones detectadas: ", "Detected apps: ", "Aplicativos detectados: ") + apps.size() + System.lineSeparator()
-                + memoryProfileLabel(mode);
-        new AlertDialog.Builder(this)
-                .setTitle(tr("Estado de RAM de Motoroll", "Motoroll RAM status", "Estado de RAM do Motoroll"))
-                .setMessage(report)
-                .setPositiveButton(tr("Cerrar", "Close", "Fechar"), null)
-                .show();
-    }
-
-    @Override
-    public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        if (level >= TRIM_MEMORY_RUNNING_LOW) {
-            synchronized (appIconLock) {
-                appIconCache.trimToSize(Math.max(16, appIconCache.maxSize() / 2));
-                pendingIconViews.clear();
-            }
-        }
-        if (level >= TRIM_MEMORY_UI_HIDDEN) {
-            cachedSystemWallpaper = null;
-            cachedSystemWallpaperId = -1;
         }
     }
 
@@ -1665,8 +1159,7 @@ public class MainActivity extends Activity {
                 tr("Notas y widgets", "Notes and widgets", "Notas e widgets"),
                 tr("Aplicaciones e iconos", "Apps and icons", "Aplicativos e ícones"),
                 tr("Bóveda y navegación", "App drawer and navigation", "Gaveta e navegação"),
-                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes"),
-                tr("Motoroll Lab", "Motoroll Lab", "Motoroll Lab")
+                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes")
         };
         new AlertDialog.Builder(this)
                 .setTitle(tr("Personalización", "Personalization", "Personalização"))
@@ -1742,14 +1235,7 @@ public class MainActivity extends Activity {
                 keys.add("updates"); labels.add(tr("Actualizaciones de Motoroll", "Motoroll updates", "Atualizações do Motoroll"));
                 keys.add("default_home"); labels.add(tr("Establecer Motoroll como launcher predeterminado",
                         "Set Motoroll as default launcher", "Definir Motoroll como launcher padrão"));
-                keys.add("memory_mode"); labels.add(memoryProfileLabel(prefs.getInt(PREF_MEMORY_MODE, 0)));
-                keys.add("memory_status"); labels.add(tr("Estado de RAM de Motoroll", "Motoroll RAM status", "Estado de RAM do Motoroll"));
                 keys.add("reset"); labels.add(tr("Restablecer personalización", "Reset customization", "Redefinir personalização"));
-                break;
-            case 6: // Motoroll Lab tools
-                keys.add("safesave"); labels.add(tr("SafeSave · copia y restauración", "SafeSave · backup and restore", "SafeSave · backup e restauração"));
-                keys.add("smart_drawer"); labels.add(tr("Smart Drawer · opciones de bóveda", "Smart Drawer · drawer options", "Smart Drawer · opções da gaveta"));
-                keys.add("studio"); labels.add(tr("Motoroll Studio · perfiles y aspecto", "Motoroll Studio · profiles and look", "Motoroll Studio · perfis e aparência"));
                 break;
             default:
                 return;
@@ -1762,8 +1248,7 @@ public class MainActivity extends Activity {
                 tr("Notas y widgets", "Notes and widgets", "Notas e widgets"),
                 tr("Aplicaciones e iconos", "Apps and icons", "Aplicativos e ícones"),
                 tr("Bóveda y navegación", "App drawer and navigation", "Gaveta e navegação"),
-                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes"),
-                tr("Motoroll Lab", "Motoroll Lab", "Motoroll Lab")
+                tr("Sistema y ajustes", "System and settings", "Sistema e ajustes")
         };
         new AlertDialog.Builder(this)
                 .setTitle(categoryNames[category])
@@ -1803,11 +1288,6 @@ public class MainActivity extends Activity {
             case "language": chooseLanguage(); break;
             case "default_home": openHomeAppSettings(); break;
             case "reset": resetCustomization(); break;
-            case "safesave": showSafeSaveMenu(); break;
-            case "smart_drawer": showSmartDrawerMenu(); break;
-            case "studio": showMotorollStudioMenu(); break;
-            case "memory_mode": chooseMemoryProfile(); break;
-            case "memory_status": showMemoryStatus(); break;
         }
     }
 
