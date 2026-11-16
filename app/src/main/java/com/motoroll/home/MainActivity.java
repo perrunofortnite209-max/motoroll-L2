@@ -2073,6 +2073,11 @@ public class MainActivity extends Activity {
                 .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null).show();
     }
 
+    private int weatherCornerRadiusDp() {
+        int shape = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_SHAPE, 0);
+        return shape == 1 ? 8 : shape == 2 ? 19 : 30;
+    }
+
     private void chooseWeatherShape() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String[] shapes = {
@@ -2100,8 +2105,7 @@ public class MainActivity extends Activity {
         GradientDrawable weatherBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{0xFF31598C, 0xFF172943, 0xFF121D31});
         int weatherShape = prefs.getInt(PREF_WEATHER_SHAPE, 0);
-        float cornerRadius = weatherShape == 1 ? 8f : weatherShape == 2 ? 19f : 30f;
-        weatherBackground.setCornerRadius(dp(cornerRadius));
+        weatherBackground.setCornerRadius(dp(weatherCornerRadiusDp()));
         weatherBackground.setStroke(dp(1), 0x704F83C8);
         card.setBackground(weatherBackground);
         card.setElevation(dp(3));
@@ -2147,7 +2151,7 @@ public class MainActivity extends Activity {
         }
         LinearLayout card = row();
         card.setPadding(dp(15), dp(12), dp(15), dp(12));
-        card.setBackground(rounded(0xD9101729, 19, 0x80424A70, 1));
+        card.setBackground(rounded(0xD9101729, weatherCornerRadiusDp(), 0x80424A70, 1));
         TextView icon = text("◌", 23, CYAN, false);
         card.addView(icon, lp(34, -2));
         weatherStatus = text(weatherSummary(), 11, TEXT, false);
@@ -2174,8 +2178,10 @@ public class MainActivity extends Activity {
         // Compact blue One UI-inspired card: one-line location and a short horizontal forecast row.
         LinearLayout card = column();
         card.setPadding(dp(13), dp(9), dp(13), dp(9));
-        card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF385C91, 0xFF1B2B49, 0xFF172238}));
+        GradientDrawable oneUiBackground = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF385C91, 0xFF1B2B49, 0xFF172238});
+        oneUiBackground.setCornerRadius(dp(weatherCornerRadiusDp()));
+        card.setBackground(oneUiBackground);
         TextView place = text(prefs.getString(PREF_WEATHER_PLACE, prefs.getString(PREF_WEATHER_CITY, "")), 10, 0xFFE3EEFF, true);
         place.setMaxLines(1);
         place.setEllipsize(android.text.TextUtils.TruncateAt.END);
