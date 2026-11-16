@@ -212,6 +212,10 @@ public class MainActivity extends Activity {
             appIconsLoading.clear();
         }
         super.onDestroy();
+        if (updateReceiverRegistered) {
+            try { unregisterReceiver(updateDownloadReceiver); } catch (Exception ignored) { }
+            updateReceiverRegistered = false;
+        }
     }
 
     @Override
@@ -240,6 +244,10 @@ public class MainActivity extends Activity {
             Log.e(TAG, "Launcher failed during startup", error);
             showStartupError(error);
         }
+        IntentFilter updateFilter = new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateDownloadReceiver, updateFilter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(updateDownloadReceiver, updateFilter);
+        updateReceiverRegistered = true;
     }
 
     @Override
@@ -1706,6 +1714,139 @@ public class MainActivity extends Activity {
                 .setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null)
                 .show();
     }
+
+
+    private static final String UPDATE_MANIFEST_URL =
+            "https://raw.githubusercontent.com/perrunofortnite209-max/motoroll-L2/main/update.json";
+    private static final String UPDATE_DOWNLOAD_ID = "motoroll_pending_update_download";
+    private boolean awaitingInstallPermission;
+
+    private void checkForUpdates(boolean showUpToDate) {
+        Toast.makeText(this, tr("Buscando actualizaciones…", "Checking for updates…", "Procurando atualizações…"), Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(UPDATE_MANIFEST_URL).openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                connection.setRequestProperty("Cache-Control", "no-cache");
+                JSONObject manifest;
+                try (InputStream input = connection.getInputStream();
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8))) {
+                    StringBuilder json = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) json.append(line);
+                    manifest = new JSONObject(json.toString());
+                }
+                int latestCode = manifest.getInt("versionCode");
+                String latestName = manifest.getString("versionName");
+                String apkUrl = manifest.getString("apkUrl");
+                String notes = manifest.optString("releaseNotes", "");
+                int currentCode;
+                try {
+                    android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+                    currentCode = Build.VERSION.SDK_INT >= 28 ? (int) info.getLongVersionCode() : info.versionCode;
+                } catch (Exception e) { currentCode = 0; }
+                final boolean updateAvailable = latestCode > currentCode;
+                runOnUiThread(() -> {
+                    if (isFinishing()) return;
+                    if (!updateAvailable) {
+                        if (showUpToDate) new AlertDialog.Builder(this).setTitle("Motoroll Update Center")
+                                .setMessage(tr("Ya tienes la última versión instalada.", "You already have the latest version installed.", "Você já tem a versão mais recente instalada."))
+                                .setPositiveButton("OK", null).show();
+                        return;
+                    }
+                    new AlertDialog.Builder(this).setTitle(tr("Actualización disponible", "Update available", "Atualização disponível"))
+                            .setMessage("Motoroll Home " + latestName + " · " + tr("versión", "version", "versão") + " " + latestCode
+                                    + (notes.isEmpty() ? "" : "\n\n" + notes))
+                            .setNegativeButton(tr("Más tarde", "Later", "Mais tarde"), null)
+                            .setPositiveButton(tr("Descargar", "Download", "Baixar"), (dialog, which) -> downloadUpdate(apkUrl, latestName))
+                            .show();
+                });
+            } catch (Exception error) {
+                Log.e(TAG, "Update check failed", error);
+                runOnUiThread(() -> {
+                    if (!isFinishing()) new AlertDialog.Builder(this).setTitle("Motoroll Update Center")
+                            .setMessage(tr("No se pudo comprobar si hay actualizaciones. Revisa tu conexión e inténtalo de nuevo.",
+                                    "Could not check for updates. Check your connection and try again.",
+                                    "Não foi possível verificar atualizações. Verifique sua conexão e tente novamente."))
+                            .setPositiveButton("OK", null).show();
+                });
+            } finally { if (connection != null) connection.disconnect(); }
+        }, "Motoroll-UpdateCheck").start();
+    }
+
+    private void downloadUpdate(String apkUrl, String versionName) {
+        try {
+            android.app.DownloadManager manager = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(apkUrl));
+            request.setTitle("Motoroll Home " + versionName);
+            request.setDescription(tr("Descargando actualización", "Downloading update", "Baixando atualização"));
+            request.setMimeType("application/vnd.android.package-archive");
+            request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "MotorollHome-update.apk");
+            long id = manager.enqueue(request);
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong(UPDATE_DOWNLOAD_ID, id).apply();
+            Toast.makeText(this, tr("Descarga iniciada. Te avisaremos al terminar.", "Download started. We’ll notify you when it finishes.", "Download iniciado. Avisaremos quando terminar."), Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Log.e(TAG, "Update download failed", error);
+            Toast.makeText(this, tr("No se pudo iniciar la descarga.", "Could not start download.", "Não foi possível iniciar o download."), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void installDownloadedUpdate(long downloadId) {
+        try {
+            android.app.DownloadManager manager = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            Uri apkUri = manager.getUriForDownloadedFile(downloadId);
+            if (apkUri == null) {
+                Toast.makeText(this, tr("La descarga aún no está lista.", "The download is not ready yet.", "O download ainda não está pronto."), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong(UPDATE_DOWNLOAD_ID, downloadId).apply();
+                new AlertDialog.Builder(this).setTitle(tr("Permitir instalación", "Allow installation", "Permitir instalação"))
+                        .setMessage(tr("Activa “Permitir desde esta fuente” para instalar las actualizaciones de Motoroll.",
+                                "Enable “Allow from this source” to install Motoroll updates.",
+                                "Ative “Permitir desta fonte” para instalar atualizações do Motoroll."))
+                        .setPositiveButton(tr("Abrir ajustes", "Open settings", "Abrir configurações"), (d, w) -> {
+                            awaitingInstallPermission = true;
+                            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+                        }).setNegativeButton(tr("Ahora no", "Not now", "Agora não"), null).show();
+                return;
+            }
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(install);
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(UPDATE_DOWNLOAD_ID).apply();
+        } catch (Exception error) {
+            Log.e(TAG, "Could not open update installer", error);
+            Toast.makeText(this, tr("No se pudo abrir el instalador de Android.", "Could not open Android installer.", "Não foi possível abrir o instalador do Android."), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (awaitingInstallPermission && Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) {
+            awaitingInstallPermission = false;
+            long id = getSharedPreferences(PREFS, MODE_PRIVATE).getLong(UPDATE_DOWNLOAD_ID, -1L);
+            if (id != -1L) installDownloadedUpdate(id);
+        }
+    }
+
+    private final android.content.BroadcastReceiver updateDownloadReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (!android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) return;
+            long id = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
+            long expected = getSharedPreferences(PREFS, MODE_PRIVATE).getLong(UPDATE_DOWNLOAD_ID, -2L);
+            if (id == expected && id >= 0) {
+                Toast.makeText(MainActivity.this, tr("Actualización descargada.", "Update downloaded.", "Atualização baixada."), Toast.LENGTH_SHORT).show();
+                installDownloadedUpdate(id);
+            }
+        }
+    };
+    private boolean updateReceiverRegistered;
 
     private void chooseDrawerSwipeDirection() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
