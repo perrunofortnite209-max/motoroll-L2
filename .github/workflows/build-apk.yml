@@ -168,3 +168,4 @@ jobs:
             Instalación de actualizaciones desde el propio launcher.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
+          overwrite_files: true
