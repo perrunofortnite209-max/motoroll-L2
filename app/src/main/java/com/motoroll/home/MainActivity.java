@@ -798,6 +798,45 @@ public class MainActivity extends Activity {
                 || key.equals(PREF_PENDING_OEM_WALLPAPER_ID);
     }
 
+    private boolean isSafeSavePreferenceKey(String key) {
+        if (isBackupExcludedKey(key)) return false;
+        return key.startsWith(PREF_DOCK_PREFIX) || key.startsWith("profile_")
+                || key.equals(PREF_WALLPAPER_URI)
+                || key.equals(PREF_FORCE_MOTOROLL_BG)
+                || key.equals(PREF_DOCK_COUNT)
+                || key.equals(PREF_FAVORITE_PACKAGES)
+                || key.equals(PREF_DRAWER_SWIPE_DIRECTION)
+                || key.equals(PREF_CLOCK_POSITION)
+                || key.equals(PREF_CLOCK_STYLE)
+                || key.equals(PREF_ICON_SIZE)
+                || key.equals(PREF_WELCOME_SHOWN)
+                || key.equals(PREF_DRAWER_MODE)
+                || key.equals(PREF_LANGUAGE)
+                || key.equals(PREF_WEATHER_ENABLED)
+                || key.equals(PREF_WEATHER_CITY)
+                || key.equals(PREF_WEATHER_TEMP)
+                || key.equals(PREF_WEATHER_DESCRIPTION)
+                || key.equals(PREF_WEATHER_PLACE)
+                || key.equals(PREF_WEATHER_FETCHED)
+                || key.equals(PREF_WEATHER_STYLE)
+                || key.equals(PREF_WEATHER_POSITION)
+                || key.equals(PREF_WEATHER_SHAPE)
+                || key.equals(PREF_HOME_NOTE_COLOR)
+                || key.equals(PREF_HOME_NOTE_SIZE)
+                || key.equals(PREF_ICON_SHAPE)
+                || key.equals(PREF_ANIMATION_MODE)
+                || key.equals(PREF_DATE_VISIBLE)
+                || key.equals(PREF_BATTERY_WIDGET)
+                || key.equals(PREF_PULSE_WIDGET)
+                || key.equals(PREF_MEMORY_MODE)
+                || key.equals(PREF_HIDDEN_APPS)
+                || key.equals(PREF_PROFILES)
+                || key.equals(PREF_HOME_NOTE)
+                || key.equals(PREF_HOME_SEARCH_VISIBLE)
+                || key.equals(PREF_HOME_NOTE_X)
+                || key.equals(PREF_HOME_NOTE_Y);
+    }
+
     private JSONObject createSafeSaveManifest() throws Exception {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         File wallpaper = new File(getFilesDir(), "motoroll_custom_wallpaper.img");
@@ -806,7 +845,7 @@ public class MainActivity extends Activity {
         JSONObject values = new JSONObject();
         for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
             String key = entry.getKey();
-            if (isBackupExcludedKey(key)) continue;
+            if (!isSafeSavePreferenceKey(key)) continue;
             Object value = entry.getValue();
             JSONObject item = new JSONObject();
             if (value instanceof Boolean) {
@@ -925,6 +964,8 @@ public class MainActivity extends Activity {
                                     output.getFD().sync();
                                 }
                                 wallpaperFound = wallpaperTemp.length() > 0;
+                            } else {
+                                throw new IllegalArgumentException("Unexpected SafeSave archive entry");
                             }
                             zip.closeEntry();
                         }
@@ -980,7 +1021,7 @@ public class MainActivity extends Activity {
         if (names == null) return;
         for (int i = 0; i < names.length(); i++) {
             String key = names.getString(i);
-            if (isBackupExcludedKey(key)) continue;
+            if (!isSafeSavePreferenceKey(key)) continue;
             JSONObject item = values.optJSONObject(key);
             if (item == null) throw new IllegalArgumentException("Invalid preference item");
             String type = item.optString("type");
@@ -1013,7 +1054,7 @@ public class MainActivity extends Activity {
         if (names != null) {
             for (int i = 0; i < names.length(); i++) {
                 String key = names.getString(i);
-                if (isBackupExcludedKey(key) || PREF_WALLPAPER_URI.equals(key)) continue;
+                if (!isSafeSavePreferenceKey(key) || PREF_WALLPAPER_URI.equals(key)) continue;
                 JSONObject item = values.getJSONObject(key);
                 String type = item.getString("type");
                 if ("boolean".equals(type)) edit.putBoolean(key, item.getBoolean("value"));
@@ -1709,9 +1750,6 @@ public class MainActivity extends Activity {
                         "Set Motoroll as default launcher", "Definir Motoroll como launcher padrão"));
                 keys.add("memory_mode"); labels.add(memoryProfileLabel(prefs.getInt(PREF_MEMORY_MODE, 0)));
                 keys.add("memory_status"); labels.add(tr("Estado de RAM de Motoroll", "Motoroll RAM status", "Estado de RAM do Motoroll"));
-                keys.add("updates"); labels.add(tr("Actualizaciones de Motoroll", "Motoroll updates", "Atualizações do Motoroll"));
-                keys.add("default_home"); labels.add(tr("Establecer Motoroll como launcher predeterminado",
-                        "Set Motoroll as default launcher", "Definir Motoroll como launcher padrão"));
                 keys.add("reset"); labels.add(tr("Restablecer personalización", "Reset customization", "Redefinir personalização"));
                 break;
             case 6: // Motoroll Lab tools
