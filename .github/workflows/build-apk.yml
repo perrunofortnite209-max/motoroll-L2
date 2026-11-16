@@ -54,12 +54,6 @@ jobs:
           grep -q 'PREF_PULSE_WIDGET' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'showPulseOptions' app/src/main/java/com/motoroll/home/MainActivity.java
           grep -q 'togglePulseWidget' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'createSafeSaveManifest' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'restoreSafeSavePreferences' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'applyMemoryProfile' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'showMemoryStatus' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'showSmartDrawerMenu' app/src/main/java/com/motoroll/home/MainActivity.java
-          grep -q 'showMotorollStudioMenu' app/src/main/java/com/motoroll/home/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
@@ -175,17 +169,13 @@ jobs:
       - name: Publish versioned GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.19
-          name: Motoroll Home 3.3.19
+          tag_name: v3.3.18-r1
+          name: Motoroll Home 3.3.18 Rollback
           body: |
-            Motoroll Lab y optimización de memoria.
-            - SafeSave permite exportar y restaurar preferencias, perfiles, dock, favoritos y fondo personalizado en un ZIP.
-            - Smart Drawer organiza las opciones del cajón sin cargar componentes extra en segundo plano.
-            - Motoroll Studio reúne perfiles, fondos e iconos usando las herramientas existentes.
-            - Perfiles de RAM: automático, ahorro y equilibrado.
-            - Diagnóstico bajo demanda con RAM del sistema, PSS aproximado del proceso, heap Java y caché de iconos.
-            - Caché de iconos adaptativa, liberación bajo presión de memoria y fondos personalizados con resolución limitada por perfil.
-            - No se añaden servicios permanentes, permisos nuevos ni tareas de monitorización.
+            Rollback al código de Motoroll Home 3.3.18.
+            - Se retiran Motoroll Lab y las optimizaciones experimentales de memoria de 3.3.19.
+            - Se conserva Motoroll Pulse y su control para activarlo o desactivarlo.
+            - Se mantiene la firma permanente y se incrementa versionCode para permitir la actualización sobre 3.3.19.
           files: app/build/outputs/apk/debug/MotorollHome.apk
           fail_on_unmatched_files: true
           overwrite_files: true
