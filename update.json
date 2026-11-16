@@ -1,6 +1,6 @@
 {
-  "versionCode": 19,
-  "versionName": "3.3.9",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.9/MotorollHome.apk",
-  "releaseNotes": "Nuevo widget cuadrado del clima que puedes colocar al lado del reloj o mantener debajo. Mejora del gesto vertical para abrir la bóveda, con detección más consistente y mejor gestión de toques y varios dedos."
+  "versionCode": 20,
+  "versionName": "3.3.10",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.10/MotorollHome.apk",
+  "releaseNotes": "Se vuelve a publicar el widget cuadrado del clima junto al reloj o debajo de él, con selector de posición. Incluye la detección mejorada del gesto vertical para abrir la bóveda y conserva la paginación horizontal, los fondos y las demás funciones existentes."
 }
