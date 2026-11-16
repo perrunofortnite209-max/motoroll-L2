@@ -2353,28 +2353,28 @@ public class MainActivity extends Activity {
                 .getBoolean(PREF_WEATHER_ENABLED, false)
                 && getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_WEATHER_POSITION, 0) != 0;
         if (weatherBesideClock) {
-            // Weather position is independent from clock alignment; weighted clock space prevents overlap.
-            LinearLayout clockAndWeather = row();
-            clockAndWeather.setGravity(Gravity.CENTER_VERTICAL);
+            // Keep the clock aligned against the full screen width.
+            // The weather widget is overlaid at the selected edge and never changes clock gravity.
             int weatherPosition = getSharedPreferences(PREFS, MODE_PRIVATE)
                     .getInt(PREF_WEATHER_POSITION, 1);
-            LinearLayout clockSlot = column();
-            clockSlot.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
-            clockSlot.setMinimumWidth(dp(145));
+            FrameLayout clockWeatherFrame = new FrameLayout(this);
+            FrameLayout.LayoutParams clockParams = new FrameLayout.LayoutParams(
+                    -1, -2, Gravity.CENTER_VERTICAL);
+            clockParams.topMargin = dp(7);
             clock.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
             clock.setSingleLine(true);
-            clock.setMinWidth(dp(145));
-            LinearLayout.LayoutParams clockSlotParams = new LinearLayout.LayoutParams(0, -2, 1f);
-            clockSlotParams.topMargin = dp(7);
-            clockSlot.addView(clock, lp(-1, -2));
-            if (weatherPosition == 2) {
-                addSquareWeatherWidget(clockAndWeather);
-                clockAndWeather.addView(clockSlot, clockSlotParams);
-            } else {
-                clockAndWeather.addView(clockSlot, clockSlotParams);
-                addSquareWeatherWidget(clockAndWeather);
-            }
-            content.addView(clockAndWeather, lp(-1, -2));
+            clockWeatherFrame.addView(clock, clockParams);
+
+            LinearLayout weatherHolder = column();
+            weatherHolder.setGravity(Gravity.CENTER);
+            addSquareWeatherWidget(weatherHolder);
+            FrameLayout.LayoutParams weatherParams = new FrameLayout.LayoutParams(
+                    -2, -2, Gravity.CENTER_VERTICAL
+                    | (weatherPosition == 2 ? Gravity.START : Gravity.END));
+            weatherParams.setMarginStart(dp(7));
+            weatherParams.setMarginEnd(dp(7));
+            clockWeatherFrame.addView(weatherHolder, weatherParams);
+            content.addView(clockWeatherFrame, lp(-1, 92));
         } else {
             content.addView(clock, withTop(lp(-1, -2), 7));
         }
