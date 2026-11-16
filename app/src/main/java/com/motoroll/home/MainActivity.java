@@ -1203,13 +1203,13 @@ public class MainActivity extends Activity {
         }
         int mode = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(PREF_MEMORY_MODE, 0);
         String report = tr("RAM del sistema disponible: ", "Available system RAM: ", "RAM do sistema disponível: ")
-                + megabytes(info.availMem) + "\\n"
-                + tr("RAM total del sistema: ", "Total system RAM: ", "RAM total do sistema: ") + megabytes(info.totalMem) + "\\n"
-                + tr("Motoroll (PSS aproximado): ", "Motoroll (approx. PSS): ", "Motoroll (PSS aproximado): ") + megabytes(processPss) + "\\n"
+                + megabytes(info.availMem) + System.lineSeparator()
+                + tr("RAM total del sistema: ", "Total system RAM: ", "RAM total do sistema: ") + megabytes(info.totalMem) + System.lineSeparator()
+                + tr("Motoroll (PSS aproximado): ", "Motoroll (approx. PSS): ", "Motoroll (PSS aproximado): ") + megabytes(processPss) + System.lineSeparator()
                 + tr("Heap Java usado / máximo: ", "Java heap used / max: ", "Heap Java usado / máximo: ")
-                + megabytes(javaUsed) + " / " + megabytes(runtime.maxMemory()) + "\\n"
-                + tr("Caché de iconos: ", "Icon cache: ", "Cache de ícones: ") + cacheSize + " / " + cacheMax + "\\n"
-                + tr("Aplicaciones detectadas: ", "Detected apps: ", "Aplicativos detectados: ") + apps.size() + "\\n"
+                + megabytes(javaUsed) + " / " + megabytes(runtime.maxMemory()) + System.lineSeparator()
+                + tr("Caché de iconos: ", "Icon cache: ", "Cache de ícones: ") + cacheSize + " / " + cacheMax + System.lineSeparator()
+                + tr("Aplicaciones detectadas: ", "Detected apps: ", "Aplicativos detectados: ") + apps.size() + System.lineSeparator()
                 + memoryProfileLabel(mode);
         new AlertDialog.Builder(this)
                 .setTitle(tr("Estado de RAM de Motoroll", "Motoroll RAM status", "Estado de RAM do Motoroll"))
