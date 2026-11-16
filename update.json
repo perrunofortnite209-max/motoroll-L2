@@ -1,6 +1,6 @@
 {
-  "versionCode": 18,
-  "versionName": "3.3.8",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.8/MotorollHome.apk",
-  "releaseNotes": "Corrección de fondos personalizados: las fotos elegidas se copian al almacenamiento privado de Motoroll para que sigan disponibles tras cerrar la galería o reiniciar. Se mantiene la aplicación opcional al fondo del teléfono."
+  "versionCode": 19,
+  "versionName": "3.3.9",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.9/MotorollHome.apk",
+  "releaseNotes": "Mejora del gesto vertical para abrir la bóveda: detección más rápida y consistente, adaptada al touch slop del dispositivo. Se conservan los modos vertical y horizontal."
 }
