@@ -1202,6 +1202,10 @@ public class MainActivity extends Activity {
                 }
                 break;
             case 2: // Notes and widgets
+                boolean pulseEnabled = prefs.getBoolean(PREF_PULSE_WIDGET, true);
+                keys.add("pulse_toggle"); labels.add(pulseEnabled
+                        ? tr("Motoroll Pulse: activado ✓", "Motoroll Pulse: enabled ✓", "Motoroll Pulse: ativado ✓")
+                        : tr("Motoroll Pulse: desactivado", "Motoroll Pulse: disabled", "Motoroll Pulse: desativado"));
                 keys.add("home_note"); labels.add(tr("Editar nota o bienvenida", "Edit note or greeting", "Editar nota ou saudação"));
                 keys.add("home_note_style"); labels.add(tr("Color y tamaño de la nota", "Note color and size", "Cor e tamanho da nota"));
                 keys.add("widgets"); labels.add(tr("Widgets y elementos de pantalla", "Widgets and home elements", "Widgets e elementos da tela"));
@@ -1274,6 +1278,7 @@ public class MainActivity extends Activity {
             case "home_search": toggleHomeSearch(); break;
             case "date": toggleDateVisibility(); break;
             case "widgets": chooseWidgets(); break;
+            case "pulse_toggle": togglePulseWidget(); break;
             case "home_note": chooseHomeNote(); break;
             case "home_note_style": chooseHomeNoteStyle(); break;
             case "icon_shape": chooseIconShape(); break;
@@ -1657,11 +1662,46 @@ public class MainActivity extends Activity {
                 "Motoroll Pulse. Toque para abrir as configurações de bateria. Pressione para personalizar."));
         card.setOnClickListener(v -> openBatterySettings());
         card.setOnLongClickListener(v -> {
-            showCustomizationMenu();
+            showPulseOptions();
             return true;
         });
         content.addView(card, withTop(lp(-1, 94), 20));
         updatePulseWidget();
+    }
+
+    private void showPulseOptions() {
+        boolean enabled = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_PULSE_WIDGET, true);
+        String toggleLabel = enabled
+                ? tr("Desactivar Motoroll Pulse", "Turn off Motoroll Pulse", "Desativar Motoroll Pulse")
+                : tr("Activar Motoroll Pulse", "Turn on Motoroll Pulse", "Ativar Motoroll Pulse");
+        new AlertDialog.Builder(this)
+                .setTitle("MOTOROLL PULSE")
+                .setItems(new String[]{
+                        toggleLabel,
+                        tr("Personalización general", "General personalization", "Personalização geral")
+                }, (dialog, which) -> {
+                    if (which == 0) setPulseWidgetEnabled(!enabled);
+                    else showCustomizationMenu();
+                })
+                .setNegativeButton(tr("Cerrar", "Close", "Fechar"), null)
+                .show();
+    }
+
+    private void togglePulseWidget() {
+        boolean enabled = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_PULSE_WIDGET, true);
+        setPulseWidgetEnabled(!enabled);
+    }
+
+    private void setPulseWidgetEnabled(boolean enabled) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(PREF_PULSE_WIDGET, enabled).apply();
+        Toast.makeText(this, enabled
+                ? tr("Motoroll Pulse activado", "Motoroll Pulse enabled", "Motoroll Pulse ativado")
+                : tr("Motoroll Pulse desactivado", "Motoroll Pulse disabled", "Motoroll Pulse desativado"),
+                Toast.LENGTH_SHORT).show();
+        showHome(true);
     }
 
     private void updatePulseWidget() {
