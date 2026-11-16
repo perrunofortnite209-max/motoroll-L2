@@ -70,6 +70,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -82,7 +83,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Motoroll Home 3.3.12 - customizable weather tile and personal note styling.
+ * Motoroll Home 3.3.17 - Motoroll Pulse dashboard and customizable home experience.
  * Native views only: optional on-demand weather, no analytics, no background service, and no third-party UI library.
  * App drawer opens with a downward swipe. Drawer scrolling is handled by its own container;
  * it closes only with the close button or Android Back.
@@ -118,6 +119,7 @@ public class MainActivity extends Activity {
     private static final String PREF_ANIMATION_MODE = "animation_mode"; // 0 reduced, 1 smooth, 2 relaxed
     private static final String PREF_DATE_VISIBLE = "date_visible";
     private static final String PREF_BATTERY_WIDGET = "battery_widget";
+    private static final String PREF_PULSE_WIDGET = "pulse_widget";
     private static final String PREF_HIDDEN_APPS = "hidden_apps";
     private static final String PREF_PROFILES = "appearance_profiles";
     private static final String PREF_HOME_NOTE = "home_note";
@@ -176,6 +178,10 @@ public class MainActivity extends Activity {
     private TextView weatherIconView;
     private LinearLayout batteryWidget;
     private TextView batteryWidgetText;
+    private PulseBatteryRing pulseBatteryRing;
+    private TextView pulseGreetingText;
+    private TextView pulseStatusText;
+    private TextView pulseBatteryText;
     private volatile boolean weatherRefreshInFlight;
     private LinearLayout dock;
     private boolean drawerOpen = false;
@@ -281,6 +287,7 @@ public class MainActivity extends Activity {
                 systemWallpaperView.setImageDrawable(copySystemWallpaperDrawable());
             }
             if (batteryWidgetText != null) updateBatteryWidget();
+            if (pulseBatteryRing != null) updatePulseWidget();
             if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_WEATHER_ENABLED, false)) {
                 refreshWeatherIfNeeded(false);
             }
@@ -1411,17 +1418,20 @@ public class MainActivity extends Activity {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String[] options = {
                 tr("Mostrar fecha debajo del reloj", "Show date below clock", "Mostrar data abaixo do relógio"),
-                tr("Mostrar widget compacto de batería", "Show compact battery widget", "Mostrar widget compacto de bateria")
+                tr("Mostrar widget compacto de batería", "Show compact battery widget", "Mostrar widget compacto de bateria"),
+                tr("Mostrar Motoroll Pulse", "Show Motoroll Pulse", "Mostrar Motoroll Pulse")
         };
         boolean[] checked = {
                 prefs.getBoolean(PREF_DATE_VISIBLE, true),
-                prefs.getBoolean(PREF_BATTERY_WIDGET, false)
+                prefs.getBoolean(PREF_BATTERY_WIDGET, false),
+                prefs.getBoolean(PREF_PULSE_WIDGET, true)
         };
         new AlertDialog.Builder(this).setTitle(tr("Widgets de Motoroll", "Motoroll widgets", "Widgets do Motoroll"))
                 .setMultiChoiceItems(options, checked, (dialog, which, value) -> checked[which] = value)
                 .setPositiveButton(tr("Aplicar", "Apply", "Aplicar"), (d, w) -> {
                     prefs.edit().putBoolean(PREF_DATE_VISIBLE, checked[0])
-                            .putBoolean(PREF_BATTERY_WIDGET, checked[1]).apply();
+                            .putBoolean(PREF_BATTERY_WIDGET, checked[1])
+                            .putBoolean(PREF_PULSE_WIDGET, checked[2]).apply();
                     showHome(true);
                 }).setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null).show();
     }
@@ -1594,6 +1604,108 @@ public class MainActivity extends Activity {
                         } catch (Exception error) { Toast.makeText(this, tr("No se pudo cargar el perfil", "Could not load profile", "Não foi possível carregar o perfil"), Toast.LENGTH_LONG).show(); }
                     }
                 }).setNegativeButton(tr("Cancelar", "Cancel", "Cancelar"), null).show();
+    }
+
+    private String pulseGreeting() {
+        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (hour >= 5 && hour < 12) return tr("Buenos días", "Good morning", "Bom dia");
+        if (hour >= 12 && hour < 19) return tr("Buenas tardes", "Good afternoon", "Boa tarde");
+        return tr("Buenas noches", "Good evening", "Boa noite");
+    }
+
+    private void addPulseWidget(LinearLayout content) {
+        LinearLayout card = row();
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(16), dp(12), dp(14), dp(12));
+        GradientDrawable cardBackground = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0xE91D3153, 0xEF11182B});
+        cardBackground.setCornerRadius(dp(20));
+        cardBackground.setStroke(dp(1), 0x90465F91);
+        card.setBackground(cardBackground);
+        card.setElevation(dp(2));
+
+        LinearLayout details = column();
+        details.setGravity(Gravity.CENTER_VERTICAL);
+        TextView eyebrow = text("MOTOROLL PULSE", 9, CYAN, true);
+        eyebrow.setLetterSpacing(0.16f);
+        details.addView(eyebrow);
+
+        pulseGreetingText = text(pulseGreeting(), 20, TEXT, true);
+        details.addView(pulseGreetingText, withTop(lp(-1, -2), 3));
+
+        pulseStatusText = text(tr("Tu energía, de un vistazo", "Your energy at a glance", "Sua energia em um olhar"),
+                10, MUTED, false);
+        pulseStatusText.setSingleLine(true);
+        pulseStatusText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        details.addView(pulseStatusText, withTop(lp(-1, -2), 3));
+        card.addView(details, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        FrameLayout batteryGauge = new FrameLayout(this);
+        pulseBatteryRing = new PulseBatteryRing(this);
+        batteryGauge.addView(pulseBatteryRing,
+                new FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER));
+        pulseBatteryText = text("--", 13, TEXT, true);
+        pulseBatteryText.setGravity(Gravity.CENTER);
+        batteryGauge.addView(pulseBatteryText,
+                new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        card.addView(batteryGauge, lp(58, 58));
+
+        card.setContentDescription(tr(
+                "Motoroll Pulse. Toca para abrir los ajustes de batería. Mantén pulsado para personalizar.",
+                "Motoroll Pulse. Tap to open battery settings. Long press to personalize.",
+                "Motoroll Pulse. Toque para abrir as configurações de bateria. Pressione para personalizar."));
+        card.setOnClickListener(v -> openBatterySettings());
+        card.setOnLongClickListener(v -> {
+            showCustomizationMenu();
+            return true;
+        });
+        content.addView(card, withTop(lp(-1, 94), 20));
+        updatePulseWidget();
+    }
+
+    private void updatePulseWidget() {
+        if (pulseBatteryRing == null) return;
+        if (pulseGreetingText != null) pulseGreetingText.setText(pulseGreeting());
+
+        Intent battery = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (battery == null) {
+            pulseBatteryRing.setBatteryLevel(-1);
+            if (pulseBatteryText != null) pulseBatteryText.setText("--");
+            if (pulseStatusText != null) pulseStatusText.setText(tr(
+                    "Estado de batería no disponible", "Battery status unavailable", "Status da bateria indisponível"));
+            return;
+        }
+
+        int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+        int percent = level >= 0 && scale > 0 ? Math.round(level * 100f / scale) : -1;
+        int status = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING;
+        boolean full = status == BatteryManager.BATTERY_STATUS_FULL;
+        pulseBatteryRing.setBatteryLevel(percent);
+        if (pulseBatteryText != null) pulseBatteryText.setText(percent >= 0 ? percent + "%" : "--");
+
+        String state;
+        if (full) state = tr("Carga completa", "Fully charged", "Carga completa");
+        else if (charging) state = tr("Cargando ahora", "Charging now", "Carregando agora");
+        else if (percent >= 0 && percent <= 15) state = tr("Batería baja", "Low battery", "Bateria baixa");
+        else if (percent >= 0 && percent >= 85) state = tr("Energía lista para el día", "Power ready for the day", "Energia pronta para o dia");
+        else state = tr("Energía estable", "Power is steady", "Energia estável");
+        if (pulseStatusText != null) pulseStatusText.setText(state);
+    }
+
+    private void openBatterySettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS));
+        } catch (Exception firstError) {
+            try {
+                startActivity(new Intent(Settings.ACTION_SETTINGS));
+            } catch (Exception secondError) {
+                Toast.makeText(this, tr("No se pudieron abrir los ajustes", "Could not open settings", "Não foi possível abrir as configurações"),
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void addBatteryWidget(LinearLayout content) {
@@ -2354,6 +2466,10 @@ public class MainActivity extends Activity {
         homeGrid = null;
         batteryWidget = null;
         batteryWidgetText = null;
+        pulseBatteryRing = null;
+        pulseGreetingText = null;
+        pulseStatusText = null;
+        pulseBatteryText = null;
 
         FrameLayout root = createRoot();
         applyLongPressCustomization(root);
@@ -2466,6 +2582,10 @@ public class MainActivity extends Activity {
             }
         } else {
             weatherStatus = null;
+        }
+
+        if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_PULSE_WIDGET, true)) {
+            addPulseWidget(content);
         }
 
         LinearLayout favoritesHeader = row();
@@ -2712,6 +2832,10 @@ public class MainActivity extends Activity {
         drawerContent = null;
         batteryWidget = null;
         batteryWidgetText = null;
+        pulseBatteryRing = null;
+        pulseGreetingText = null;
+        pulseStatusText = null;
+        pulseBatteryText = null;
 
         FrameLayout root = createRoot();
         LinearLayout shell = column();
@@ -3186,6 +3310,50 @@ public class MainActivity extends Activity {
                 canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
             }
             paint.setShader(null);
+        }
+    }
+
+    private class PulseBatteryRing extends View {
+        private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint progressPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private int batteryLevel = -1;
+
+        PulseBatteryRing(Context context) {
+            super(context);
+        }
+
+        void setBatteryLevel(int level) {
+            batteryLevel = level;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float stroke = dp(4);
+            float radius = (Math.min(getWidth(), getHeight()) - stroke * 2f) / 2f;
+            if (radius <= 0f) return;
+            float cx = getWidth() / 2f;
+            float cy = getHeight() / 2f;
+            android.graphics.RectF circle = new android.graphics.RectF(
+                    cx - radius, cy - radius, cx + radius, cy + radius);
+
+            trackPaint.setStyle(Paint.Style.STROKE);
+            trackPaint.setStrokeWidth(stroke);
+            trackPaint.setStrokeCap(Paint.Cap.ROUND);
+            trackPaint.setColor(0x665C78A8);
+            trackPaint.setShader(null);
+            canvas.drawArc(circle, -90f, 360f, false, trackPaint);
+
+            if (batteryLevel >= 0) {
+                progressPaint.setStyle(Paint.Style.STROKE);
+                progressPaint.setStrokeWidth(stroke);
+                progressPaint.setStrokeCap(Paint.Cap.ROUND);
+                progressPaint.setColor(batteryLevel <= 15 ? 0xFFFFB36B : BLUE);
+                progressPaint.setShader(null);
+                canvas.drawArc(circle, -90f, 360f * Math.max(0, Math.min(100, batteryLevel)) / 100f,
+                        false, progressPaint);
+            }
         }
     }
 
