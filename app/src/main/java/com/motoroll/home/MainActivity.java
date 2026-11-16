@@ -222,6 +222,10 @@ public class MainActivity extends Activity {
             try { unregisterReceiver(updateDownloadReceiver); } catch (Exception ignored) { }
             updateReceiverRegistered = false;
         }
+        if (packageReceiverRegistered) {
+            try { unregisterReceiver(packageChangeReceiver); } catch (Exception ignored) { }
+            packageReceiverRegistered = false;
+        }
     }
 
     @Override
@@ -254,24 +258,27 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateDownloadReceiver, updateFilter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(updateDownloadReceiver, updateFilter);
         updateReceiverRegistered = true;
+
+        IntentFilter packageFilter = new IntentFilter();
+        packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packageFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packageFilter.addDataScheme("package");
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(packageChangeReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(packageChangeReceiver, packageFilter);
+        packageReceiverRegistered = true;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         try {
-            loadApps();
+            // Avoid a full PackageManager scan and icon/dock rebind on every app exit.
+            // Package broadcasts above keep the cached app list current when it changes.
             completePendingOemWallpaperIfChanged();
-            refreshSystemWallpaperCache();
-            if (drawerOpen && drawerSearch != null) {
-                String q = drawerSearch.getText() == null ? "" : drawerSearch.getText().toString();
-                refreshDrawer(q);
-            } else if (homeGrid != null) {
-                if (getSavedWallpaperUri() == null && systemWallpaperView != null) {
-                    systemWallpaperView.setImageDrawable(copySystemWallpaperDrawable());
-                }
-                homeGrid.setAdapter(new AppAdapter(favoriteApps(), true));
-                rebuildDock();
+            if (homeGrid != null && getSavedWallpaperUri() == null && systemWallpaperView != null) {
+                systemWallpaperView.setImageDrawable(copySystemWallpaperDrawable());
             }
             if (batteryWidgetText != null) updateBatteryWidget();
             if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_WEATHER_ENABLED, false)) {
@@ -2015,6 +2022,28 @@ public class MainActivity extends Activity {
     };
     private boolean updateReceiverRegistered;
 
+    private final android.content.BroadcastReceiver packageChangeReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            // Refresh the app list only when Android actually reports an install,
+            // removal or package update, never on every return from another app.
+            mainHandler.post(() -> {
+                try {
+                    loadApps();
+                    if (drawerOpen && drawerSearch != null) {
+                        String query = drawerSearch.getText() == null ? "" : drawerSearch.getText().toString();
+                        refreshDrawer(query);
+                    } else if (homeGrid != null) {
+                        homeGrid.setAdapter(new AppAdapter(favoriteApps(), true));
+                        rebuildDock();
+                    }
+                } catch (RuntimeException error) {
+                    Log.w(TAG, "Could not refresh apps after package change", error);
+                }
+            });
+        }
+    };
+    private boolean packageReceiverRegistered;
+
     private void chooseDrawerSwipeDirection() {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         int selected = prefs.getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
@@ -2211,9 +2240,9 @@ public class MainActivity extends Activity {
         card.setOnClickListener(v -> chooseWeatherCity(false));
         card.setOnLongClickListener(v -> { chooseWeatherPosition(); return true; });
         card.setContentDescription(tr("Widget del clima. Toca para cambiar ciudad", "Weather widget. Tap to change city", "Widget do clima. Toque para mudar cidade"));
+        // Keep the tile's full 84dp footprint inside its holder. The previous
+        // extra margins could push its edge/shadow outside the small side container.
         LinearLayout.LayoutParams params = lp(84, 84);
-        params.leftMargin = dp(7);
-        params.topMargin = dp(4);
         parent.addView(card, params);
     }
 
@@ -2380,23 +2409,29 @@ public class MainActivity extends Activity {
             int weatherPosition = getSharedPreferences(PREFS, MODE_PRIVATE)
                     .getInt(PREF_WEATHER_POSITION, 1);
             FrameLayout clockWeatherFrame = new FrameLayout(this);
+            clockWeatherFrame.setClipChildren(false);
+            clockWeatherFrame.setClipToPadding(false);
             FrameLayout.LayoutParams clockParams = new FrameLayout.LayoutParams(
-                    -1, -2, Gravity.CENTER_VERTICAL);
+                    -1, -1, Gravity.CENTER_VERTICAL);
             clockParams.topMargin = dp(7);
             clock.setGravity(clockGravity() | Gravity.CENTER_VERTICAL);
             clock.setSingleLine(true);
             clockWeatherFrame.addView(clock, clockParams);
 
+            // A 96dp holder gives the 84dp tile room for its rounded corners and
+            // elevation shadow, preventing the outer edge from being clipped.
             LinearLayout weatherHolder = column();
             weatherHolder.setGravity(Gravity.CENTER);
+            weatherHolder.setClipChildren(false);
+            weatherHolder.setClipToPadding(false);
             addSquareWeatherWidget(weatherHolder);
             FrameLayout.LayoutParams weatherParams = new FrameLayout.LayoutParams(
-                    -2, -2, Gravity.CENTER_VERTICAL
+                    dp(96), dp(96), Gravity.CENTER_VERTICAL
                     | (weatherPosition == 2 ? Gravity.START : Gravity.END));
-            weatherParams.setMarginStart(dp(7));
-            weatherParams.setMarginEnd(dp(7));
+            weatherParams.setMarginStart(dp(5));
+            weatherParams.setMarginEnd(dp(5));
             clockWeatherFrame.addView(weatherHolder, weatherParams);
-            content.addView(clockWeatherFrame, lp(-1, 92));
+            content.addView(clockWeatherFrame, lp(-1, 104));
         } else {
             content.addView(clock, withTop(lp(-1, -2), 7));
         }
@@ -2989,7 +3024,15 @@ public class MainActivity extends Activity {
         }
 
         private float triggerDistance() {
-            return Math.max(dp(14), slop);
+            return Math.max(dp(12), slop * 0.85f);
+        }
+
+        // Android ScrollView and GridView normally disallow parent interception as
+        // soon as scrolling starts. Keep this root listening so a deliberate
+        // launcher swipe can win, while ordinary/opposite-direction scrolling passes through.
+        @Override
+        public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+            // Intentionally do not propagate the disallow flag to FrameLayout.
         }
 
         private boolean isOpeningDirection(float dx, float dy) {
