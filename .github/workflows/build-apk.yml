@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -156,3 +156,15 @@ jobs:
           path: app/build/outputs/apk/debug/MotorollHome.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish versioned GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.3.7
+          name: Motoroll Home 3.3.7
+          body: |
+            Motoroll Update Center integrado.
+            Corrección del scroll horizontal Samsung: páginas ajustadas al ancho real y gestos horizontales reconocidos desde la cuadrícula.
+            Instalación de actualizaciones desde el propio launcher.
+          files: app/build/outputs/apk/debug/MotorollHome.apk
+          fail_on_unmatched_files: true
