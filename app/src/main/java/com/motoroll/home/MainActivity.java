@@ -1103,6 +1103,7 @@ public class MainActivity extends Activity {
         keys.add("swipe_direction"); labels.add(tr("Gesto bóveda: " + (swipeMode == 0 ? "arriba → abajo ✓" : "abajo → arriba ✓"),
                 "Drawer swipe: " + (swipeMode == 0 ? "top → bottom ✓" : "bottom → top ✓"),
                 "Gesto gaveta: " + (swipeMode == 0 ? "cima → baixo ✓" : "baixo → cima ✓")));
+        keys.add("updates"); labels.add(tr("Actualizaciones de Motoroll", "Motoroll updates", "Atualizações do Motoroll"));
         keys.add("icons"); labels.add(tr("Tamaño de iconos", "Icon size", "Tamanho dos ícones"));
         keys.add("weather_toggle"); labels.add(weatherEnabled
                 ? tr("Clima: activado", "Weather: on", "Clima: ativado")
@@ -1142,6 +1143,7 @@ public class MainActivity extends Activity {
                         case "dock": chooseDockSlot(); break;
                         case "dock_count": chooseDockCount(); break;
                         case "swipe_direction": chooseDrawerSwipeDirection(); break;
+                        case "updates": checkForUpdates(true); break;
                         case "icons": chooseIconSize(); break;
                         case "weather_toggle": toggleWeather(); break;
                         case "weather_city": chooseWeatherCity(false); break;
