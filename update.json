@@ -1,6 +1,6 @@
 {
-  "versionCode": 29,
-  "versionName": "3.3.19",
-  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.19/MotorollHome.apk",
-  "releaseNotes": "Motoroll Lab incorpora SafeSave para exportar o restaurar ajustes y fondo, Smart Drawer para agrupar opciones de la bóveda y Motoroll Studio para organizar perfiles y apariencia. Se añade un perfil de memoria automático, ahorro RAM y equilibrado, diagnóstico de memoria y reducción adaptativa de caché de iconos y resolución del fondo."
+  "versionCode": 30,
+  "versionName": "3.3.18-R1",
+  "apkUrl": "https://github.com/perrunofortnite209-max/motoroll-L2/releases/download/v3.3.18-r1/MotorollHome.apk",
+  "releaseNotes": "Rollback basado en el código estable de Motoroll Home 3.3.18. Se retiran Motoroll Lab y los cambios de memoria introducidos en 3.3.19. Se conserva Motoroll Pulse con sus opciones para activarlo y desactivarlo. Número interno actualizado para permitir instalar encima de 3.3.19 sin desinstalar."
 }
