@@ -463,7 +463,7 @@ public class MainActivity extends Activity {
     }
 
     private FrameLayout createRoot() {
-        FrameLayout root = new FrameLayout(this);
+        FrameLayout root = new SwipeRootLayout(this);
         systemWallpaperView = null;
         root.setBackgroundColor(BG);
 
@@ -2401,26 +2401,60 @@ public class MainActivity extends Activity {
         private int pageWidth;
         private int pageCount = 1;
         private float downTouchX;
+        private float downTouchY;
         private int startScrollX;
         private VelocityTracker velocityTracker;
+        private boolean draggingHorizontally;
+        private final int touchSlop = ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
         private final int minimumFlingVelocity = ViewConfiguration.get(MainActivity.this).getScaledMinimumFlingVelocity();
 
-        SnapHorizontalScrollView(Context context) { super(context); }
+        SnapHorizontalScrollView(Context context) {
+            super(context);
+            setClickable(true);
+        }
 
         void setPageMetrics(int width, int count) {
             pageWidth = Math.max(1, width);
             pageCount = Math.max(1, count);
         }
 
+        private int effectivePageWidth() {
+            return pageWidth > 0 ? pageWidth : Math.max(1, getWidth());
+        }
+
+        @Override public boolean onInterceptTouchEvent(MotionEvent event) {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                downTouchX = event.getX();
+                downTouchY = event.getY();
+                draggingHorizontally = false;
+                return false;
+            }
+            if (action == MotionEvent.ACTION_MOVE) {
+                float dx = event.getX() - downTouchX;
+                float dy = event.getY() - downTouchY;
+                if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy) * 1.15f) {
+                    draggingHorizontally = true;
+                    return true;
+                }
+            }
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                draggingHorizontally = false;
+            }
+            return false;
+        }
+
         @Override public void fling(int velocityX) {
-            // Intentionally handled in onTouchEvent to clamp movement to one page.
+            // The gesture is settled manually to exactly one adjacent page.
         }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN) {
                 downTouchX = event.getX();
+                downTouchY = event.getY();
                 startScrollX = getScrollX();
+                draggingHorizontally = false;
                 if (velocityTracker != null) velocityTracker.recycle();
                 velocityTracker = VelocityTracker.obtain();
                 velocityTracker.addMovement(event);
@@ -2438,33 +2472,102 @@ public class MainActivity extends Activity {
                     velocityTracker.recycle();
                     velocityTracker = null;
                 }
+
                 float distance = event.getX() - downTouchX;
-                int startPage = Math.round((float) startScrollX / pageWidth);
+                int width = effectivePageWidth();
+                int startPage = Math.round((float) startScrollX / width);
                 int targetPage;
-                if (Math.abs(distance) > pageWidth * 0.16f || Math.abs(velocityX) > minimumFlingVelocity) {
-                    int direction = distance < 0 || velocityX < -minimumFlingVelocity ? 1 : -1;
-                    targetPage = startPage + direction;
+                boolean clearFling = Math.abs(velocityX) >= minimumFlingVelocity * 1.35f
+                        && Math.abs(distance) >= dp(18);
+                if (clearFling) {
+                    targetPage = startPage + (velocityX < 0f ? 1 : -1);
+                } else if (Math.abs(distance) >= width * 0.18f) {
+                    targetPage = startPage + (distance < 0f ? 1 : -1);
                 } else {
-                    targetPage = Math.round((float) getScrollX() / pageWidth);
+                    targetPage = Math.round((float) getScrollX() / width);
                 }
+
                 targetPage = Math.max(0, Math.min(pageCount - 1, targetPage));
-                smoothScrollTo(targetPage * pageWidth, 0);
-            } else if (action == MotionEvent.ACTION_CANCEL && velocityTracker != null) {
-                velocityTracker.recycle();
-                velocityTracker = null;
-                int targetPage = Math.max(0, Math.min(pageCount - 1,
-                        Math.round((float) getScrollX() / pageWidth)));
-                smoothScrollTo(targetPage * pageWidth, 0);
+                smoothScrollTo(targetPage * width, 0);
+                draggingHorizontally = false;
+            } else if (action == MotionEvent.ACTION_CANCEL) {
+                recycleVelocityTracker();
+                int width = effectivePageWidth();
+                int nearestPage = Math.max(0, Math.min(pageCount - 1,
+                        Math.round((float) getScrollX() / width)));
+                smoothScrollTo(nearestPage * width, 0);
+                draggingHorizontally = false;
             }
             return handled;
         }
 
-        @Override protected void onDetachedFromWindow() {
+        private void recycleVelocityTracker() {
             if (velocityTracker != null) {
                 velocityTracker.recycle();
                 velocityTracker = null;
             }
+        }
+
+        @Override protected void onDetachedFromWindow() {
+            recycleVelocityTracker();
             super.onDetachedFromWindow();
+        }
+    }
+
+    /**
+     * Detects the drawer gesture before GridView or other home widgets consume it.
+     * This makes both configured directions reliable and prevents accidental clicks.
+     */
+    private final class SwipeRootLayout extends FrameLayout {
+        private float startX;
+        private float startY;
+        private boolean openingGesture;
+        private final int slop = ViewConfiguration.get(MainActivity.this).getScaledTouchSlop();
+
+        SwipeRootLayout(Context context) {
+            super(context);
+            setClickable(true);
+        }
+
+        @Override public boolean onInterceptTouchEvent(MotionEvent event) {
+            if (drawerOpen) return false;
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                startX = event.getX();
+                startY = event.getY();
+                openingGesture = false;
+                return false;
+            }
+            if (action == MotionEvent.ACTION_MOVE) {
+                float dx = event.getX() - startX;
+                float dy = event.getY() - startY;
+                int direction = getSharedPreferences(PREFS, MODE_PRIVATE)
+                        .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
+                boolean correctDirection = direction == 0 ? dy > 0f : dy < 0f;
+                if (correctDirection && Math.abs(dy) > Math.max(dp(42), slop * 2)
+                        && Math.abs(dy) > Math.abs(dx) * 1.12f) {
+                    openingGesture = true;
+                    return true;
+                }
+            }
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                openingGesture = false;
+            }
+            return false;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                boolean open = openingGesture;
+                openingGesture = false;
+                if (open && !drawerOpen) {
+                    showDrawer(true, "");
+                    return true;
+                }
+            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                openingGesture = false;
+            }
+            return true;
         }
     }
 
@@ -2484,32 +2587,8 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-        int action = event.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN) {
-            downX = event.getX();
-            downY = event.getY();
-            trackingGesture = true;
-        } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)
-                && trackingGesture) {
-            if (action == MotionEvent.ACTION_CANCEL) {
-                trackingGesture = false;
-                return super.dispatchTouchEvent(event);
-            }
-            float dx = event.getX() - downX;
-            float dy = event.getY() - downY;
-            trackingGesture = false;
-            boolean mostlyVertical = Math.abs(dx) < Math.max(dp(100), Math.abs(dy) * 0.72f);
-            int swipeDirection = getSharedPreferences(PREFS, MODE_PRIVATE)
-                    .getInt(PREF_DRAWER_SWIPE_DIRECTION, 0);
-            boolean opensWithDown = swipeDirection == 0 && dy > dp(82);
-            boolean opensWithUp = swipeDirection == 1 && dy < -dp(82);
-            if (!drawerOpen && mostlyVertical && (opensWithDown || opensWithUp)) {
-                showDrawer(true, "");
-                return true;
-            }
-            // While the drawer is open, all grid and horizontal-page gestures are handled
-            // by their own scroll containers; the × button and Android Back close it.
-        }
+        // SwipeRootLayout intercepts the configured vertical gesture before child views.
+        // Keep Activity dispatch untouched so clicks and horizontal paging remain independent.
         return super.dispatchTouchEvent(event);
     }
 
