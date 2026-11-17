@@ -1513,7 +1513,8 @@ public class TvActivity extends Activity {
                 "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1920&h=1080&q=78",
                 "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1920&h=1080&q=78"
         };
-        private static final Bitmap[] WALLPAPER_CACHE=new Bitmap[WALLPAPER_URLS.length];
+        private static Bitmap cachedWallpaper;
+        private static int cachedWallpaperId=-1;
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private RadialGradient blueGlow,purpleGlow;
         private Bitmap wallpaperBitmap;
@@ -1527,7 +1528,9 @@ public class TvActivity extends Activity {
                     getSharedPreferences(PREFS,0).getInt("wallpaper",2)));
             theme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
             motion=getSharedPreferences(PREFS,0).getBoolean(PREF_MOTION,false);
-            synchronized(WALLPAPER_CACHE){wallpaperBitmap=WALLPAPER_CACHE[wallpaper];}
+            synchronized(TvAmbientBackground.class){
+                if(cachedWallpaperId==wallpaper)wallpaperBitmap=cachedWallpaper;
+            }
             if(wallpaperBitmap==null)loadWallpaper();
         }
         private void loadWallpaper(){
@@ -1554,7 +1557,10 @@ public class TvActivity extends Activity {
                     if(connection!=null)connection.disconnect();
                 }
                 if(loaded!=null){
-                    synchronized(WALLPAPER_CACHE){WALLPAPER_CACHE[wallpaper]=loaded;}
+                    synchronized(TvAmbientBackground.class){
+                        cachedWallpaper=loaded;
+                        cachedWallpaperId=wallpaper;
+                    }
                     final Bitmap ready=loaded;
                     post(()->{wallpaperBitmap=ready;invalidate();});
                 }
