@@ -73,6 +73,9 @@ public class TvActivity extends Activity {
     private final Runnable ambientRunnable=this::showAmbientMode;
     private boolean ambientShowing;
     private boolean activityResumed;
+    private FrameLayout secretOverlay;
+    private final StringBuilder secretDigits=new StringBuilder();
+    private long secretLastDigitAt=0L;
     private FrameLayout screenFrame;
     private FrameLayout ambientOverlay;
     private View ambientReturnFocus;
@@ -235,14 +238,104 @@ public class TvActivity extends Activity {
         });
     }
     @Override public boolean dispatchKeyEvent(KeyEvent event){
-        if(event.getAction()==KeyEvent.ACTION_DOWN){
+        if(event.getAction()==KeyEvent.ACTION_DOWN && event.getRepeatCount()==0){
+            if(secretOverlay!=null){
+                hideSecretEasterEgg();
+                return true;
+            }
             if(ambientShowing){
                 hideAmbientMode();
                 return true;
             }
+            int key=event.getKeyCode();
+            if(key>=KeyEvent.KEYCODE_0 && key<=KeyEvent.KEYCODE_9){
+                long now=android.os.SystemClock.uptimeMillis();
+                if(now-secretLastDigitAt>4500L)secretDigits.setLength(0);
+                secretLastDigitAt=now;
+                secretDigits.append((char)('0'+(key-KeyEvent.KEYCODE_0)));
+                if(secretDigits.length()>6)secretDigits.delete(0,secretDigits.length()-6);
+                if("082020".contentEquals(secretDigits)){
+                    secretDigits.setLength(0);
+                    showSecretEasterEgg();
+                    return true;
+                }
+            }
             scheduleAmbientMode();
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private void showSecretEasterEgg(){
+        if(screenFrame==null || secretOverlay!=null)return;
+        idleHandler.removeCallbacks(ambientRunnable);
+        FrameLayout overlay=new FrameLayout(this);
+        overlay.setBackgroundColor(0xFF03030D);
+        overlay.setFocusable(true);
+        overlay.setFocusableInTouchMode(true);
+        View stars=new View(this){
+            private final Paint starPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(Canvas canvas){
+                float w=getWidth(),h=getHeight();
+                canvas.drawColor(0xFF03030D);
+                starPaint.setStyle(Paint.Style.FILL);
+                for(int i=0;i<115;i++){
+                    float x=((i*7919)%1000)/1000f*w;
+                    float y=((i*3571)%997)/997f*h;
+                    float radius=(i%9==0)?2.1f:((i%3==0)?1.35f:0.7f);
+                    int alpha=100+(i*37%156);
+                    starPaint.setColor((alpha<<24)|0x00DCE7FF);
+                    canvas.drawCircle(x,y,radius,starPaint);
+                }
+                starPaint.setShader(new RadialGradient(w*.5f,h*.48f,Math.max(w,h)*.55f,
+                        new int[]{0x553B1D79,0x22101848,0x0003030D},
+                        new float[]{0f,.48f,1f},Shader.TileMode.CLAMP));
+                canvas.drawRect(0,0,w,h,starPaint);
+                starPaint.setShader(null);
+            }
+        };
+        overlay.addView(stars,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout content=new LinearLayout(this);
+        content.setGravity(Gravity.CENTER);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(36),dp(28),dp(36),dp(28));
+        TextView eyebrow=text("TRANSMISIÓN CLASIFICADA  •  08 / 20 / 20",12,0xFFB7A2FF,true);
+        eyebrow.setGravity(Gravity.CENTER);
+        eyebrow.setLetterSpacing(.18f);
+        content.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(34)));
+        TextView title=text("MOTOROLL",46,0xFFF4F0FF,true);
+        title.setGravity(Gravity.CENTER);
+        title.setLetterSpacing(.22f);
+        content.addView(title,new LinearLayout.LayoutParams(-1,dp(68)));
+        TextView subtitle=text("DEEP SPACE // ARCHIVE 001",17,0xFF9E8BFF,true);
+        subtitle.setGravity(Gravity.CENTER);
+        content.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(42)));
+        TextView message=text("Has encontrado el acceso oculto.\nEl universo MOTOROLL es más grande de lo que parece.",15,0xFFD4D5EA,false);
+        message.setGravity(Gravity.CENTER);
+        message.setLineSpacing(dp(5),1f);
+        LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,dp(76));
+        messageLp.topMargin=dp(12);
+        content.addView(message,messageLp);
+        TextView close=text("✦   PULSA CUALQUIER TECLA PARA REGRESAR   ✦",11,0xFF8D91B8,true);
+        close.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams closeLp=new LinearLayout.LayoutParams(-1,dp(42));
+        closeLp.topMargin=dp(20);
+        content.addView(close,closeLp);
+        overlay.addView(content,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+        screenFrame.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+        overlay.setAlpha(0f);
+        overlay.animate().alpha(1f).setDuration(850).start();
+        secretOverlay=overlay;
+        overlay.requestFocus();
+    }
+
+    private void hideSecretEasterEgg(){
+        if(secretOverlay==null)return;
+        FrameLayout old=secretOverlay;
+        secretOverlay=null;
+        old.animate().alpha(0f).setDuration(180).withEndAction(()->{
+            if(old.getParent() instanceof ViewGroup)((ViewGroup)old.getParent()).removeView(old);
+        }).start();
+        scheduleAmbientMode();
     }
 
     private void scheduleAmbientMode(){
@@ -1137,7 +1230,7 @@ public class TvActivity extends Activity {
                     getSharedPreferences(PREFS,0).edit().putInt("icon_scale",(iconScale+1)%3).apply();
                     buildSettings();
                 });
-        TextView wallpaperDescription=text("Fondos panorámicos estilo Pixel, con paisajes y color cinematográfico.",13,MUTED,false);
+        TextView wallpaperDescription=text("Fondos de galaxias, nebulosas y espacio profundo en formato panorámico.",13,MUTED,false);
         content.addView(wallpaperDescription,new LinearLayout.LayoutParams(-1,dp(28)));
 
         HorizontalScrollView wallpaperScroll=new HorizontalScrollView(this);
@@ -1147,10 +1240,10 @@ public class TvActivity extends Activity {
         LinearLayout wallpapers=new LinearLayout(this);
         wallpapers.setOrientation(LinearLayout.HORIZONTAL);
 
-        String[] wallpaperNames={"Pixel Coast","Alpine Lake","Aurora","Desert Dusk","Violet Flow","Midnight Sky"};
+        String[] wallpaperNames={"Nebula","Deep Field","Andromeda","Cosmic Dust","Event Horizon","Lunar Orbit"};
         int[] wallpaperValues={0,1,2,3,4,5};
-        int[] wallpaperThemes={0,0,1,2,1,3};
-        int[] wallpaperColors={0xFF235B86,0xFF254B69,0xFF334C83,0xFF9B6544,0xFF56317D,0xFF263A66};
+        int[] wallpaperThemes={1,1,1,1,2,0};
+        int[] wallpaperColors={0xFF542C8D,0xFF263B79,0xFF39236D,0xFF70418B,0xFF111827,0xFF284D70};
         int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",2);
 
         for(int i=0;i<wallpaperNames.length;i++){
@@ -1506,12 +1599,12 @@ public class TvActivity extends Activity {
     /** Same AMOLED blue/purple ambient wallpaper language as Motoroll Home, composed for widescreen TV. */
     private final class TvAmbientBackground extends View {
         private static final String[] WALLPAPER_URLS={
-                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1920&h=1080&q=78",
-                "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1920&h=1080&q=78",
-                "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&h=1080&q=78",
-                "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1920&h=1080&q=78",
-                "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1920&h=1080&q=78",
-                "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1920&h=1080&q=78"
+                "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&h=1080&q=82",
+                "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1920&h=1080&q=82",
+                "https://images.unsplash.com/photo-1464802686167-b939a6910659?auto=format&fit=crop&w=1920&h=1080&q=82",
+                "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&h=1080&q=82",
+                "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&h=1080&q=82",
+                "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1920&h=1080&q=82"
         };
         private static Bitmap cachedWallpaper;
         private static int cachedWallpaperId=-1;
