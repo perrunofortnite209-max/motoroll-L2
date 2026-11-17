@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">Recuperación de MOTOROLL</string>
+    <string name="accessibility_service_description">Detecta cuando el deco vuelve a abrir su aplicación de inicio predeterminada y trae MOTOROLL al frente. No lee el contenido de las ventanas.</string>
+</resources>
