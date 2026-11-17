@@ -8,7 +8,7 @@ def motorollKeyAlias = System.getenv('MOTOROLL_KEY_ALIAS')
 def motorollKeyPassword = System.getenv('MOTOROLL_KEY_PASSWORD')
 
 android {
-    namespace 'com.motoroll.tv'
+    namespace 'com.motoroll.home'
     compileSdk 36
 
     signingConfigs {
