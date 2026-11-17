@@ -212,39 +212,92 @@ public class TvActivity extends Activity {
     }
 
     private void buildHome(){
-        prepareRoot(); addBrandHeader("TU CENTRO DE APLICACIONES");
-        LinearLayout titleRow=new LinearLayout(this); titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout heading=new LinearLayout(this); heading.setOrientation(1);
-        TextView title=text("Mis aplicaciones",27,TEXT,true);
-        TextView subtitle=text("Elige qué quieres ver hoy",14,MUTED,false);
-        heading.addView(title); heading.addView(subtitle);
-        titleRow.addView(heading,new LinearLayout.LayoutParams(0,dp(66),1));
-        TextView settings=button("⚙  AJUSTES DEL LAUNCHER");
-        settings.setTextSize(13); settings.setBackground(shape(PANEL,0,14));
-        settings.setOnClickListener(v->buildSettings());
-        titleRow.addView(settings,new LinearLayout.LayoutParams(-2,dp(48)));
-        root.addView(titleRow,new LinearLayout.LayoutParams(-1,dp(82)));
+        prepareRoot();
+        addBrandHeader("TU ESPACIO DE ENTRETENIMIENTO");
 
-        HorizontalScrollView categoriesScroll=new HorizontalScrollView(this);
-        categoriesScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout categories=new LinearLayout(this); categories.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout workspace=new LinearLayout(this);
+        workspace.setOrientation(LinearLayout.HORIZONTAL);
+        workspace.setGravity(Gravity.TOP);
+        root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
+
+        // Compact navigation rail: clear TV-first sections, visually distinct from the phone launcher.
+        LinearLayout sidebar=new LinearLayout(this);
+        sidebar.setOrientation(LinearLayout.VERTICAL);
+        sidebar.setPadding(0,dp(20),dp(22),dp(10));
+        sidebar.setBackground(shape(0x66101829,0,22));
+        TextView navCaption=text("EXPLORAR",11,MUTED,true);
+        navCaption.setLetterSpacing(.16f);
+        navCaption.setPadding(dp(16),0,0,dp(14));
+        sidebar.addView(navCaption,new LinearLayout.LayoutParams(-1,dp(36)));
         String[] names={"Todo","Juegos","Vídeo","Música","Otros"};
-        for(String name:names){
-            TextView chip=button(name); chip.setTextSize(14);
+        String[] symbols={"⌂","✦","▷","♫","▦"};
+        for(int i=0;i<names.length;i++){
+            final String name=names[i];
+            TextView item=button(symbols[i]+"    "+name);
+            item.setGravity(Gravity.CENTER_VERTICAL);
+            item.setTextSize(15);
+            item.setPadding(dp(16),0,dp(12),0);
             boolean active=name.equals(selectedCategory);
-            chip.setBackground(shape(active?PANEL_FOCUS:PANEL,active?BLUE:0,22));
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,dp(42)); cp.rightMargin=dp(10);
-            categories.addView(chip,cp);
-            chip.setOnClickListener(v->{selectedCategory=name;buildHome();});
+            item.setBackground(shape(active?0xCC1B3558:Color.TRANSPARENT,active?BLUE:0,14));
+            item.setOnClickListener(v->{selectedCategory=name;buildHome();});
+            LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,dp(52));
+            ip.bottomMargin=dp(7);
+            sidebar.addView(item,ip);
         }
-        categoriesScroll.addView(categories); root.addView(categoriesScroll,new LinearLayout.LayoutParams(-1,dp(56)));
+        View navSpacer=new View(this);
+        sidebar.addView(navSpacer,new LinearLayout.LayoutParams(1,0,1));
+        TextView settings=button("⚙   Ajustes");
+        settings.setGravity(Gravity.CENTER_VERTICAL);
+        settings.setTextSize(14);
+        settings.setPadding(dp(16),0,dp(10),0);
+        settings.setBackground(shape(PANEL,0,14));
+        settings.setOnClickListener(v->buildSettings());
+        sidebar.addView(settings,new LinearLayout.LayoutParams(-1,dp(50)));
+        workspace.addView(sidebar,new LinearLayout.LayoutParams(dp(194),-1));
 
-        ScrollView scroll=new ScrollView(this); scroll.setClipToPadding(false);
-        scroll.setFocusable(false); scroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
-        grid=new GridLayout(this); grid.setColumnCount(5); grid.setUseDefaultMargins(false);
-        scroll.addView(grid,new ScrollView.LayoutParams(-1,-2));
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        status=text("",13,MUTED,false); root.addView(status,new LinearLayout.LayoutParams(-1,dp(30)));
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(30),dp(18),0,0);
+        workspace.addView(content,new LinearLayout.LayoutParams(0,-1,1));
+
+        LinearLayout titleRow=new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout heading=new LinearLayout(this);
+        heading.setOrientation(LinearLayout.VERTICAL);
+        TextView eyebrow=text("MOTOROLL TV  /  BIBLIOTECA",11,BLUE,true);
+        eyebrow.setLetterSpacing(.13f);
+        TextView title=text(selectedCategory.equals("Todo")?"Tus aplicaciones":selectedCategory,30,TEXT,true);
+        TextView subtitle=text("Todo listo para disfrutar en pantalla grande",14,MUTED,false);
+        heading.addView(eyebrow); heading.addView(title); heading.addView(subtitle);
+        titleRow.addView(heading,new LinearLayout.LayoutParams(0,dp(92),1));
+        TextClock clock=new TextClock(this);
+        clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
+        clock.setTextColor(TEXT); clock.setTextSize(20);
+        titleRow.addView(clock);
+        content.addView(titleRow,new LinearLayout.LayoutParams(-1,dp(104)));
+
+        TextView section=text("APLICACIONES",12,MUTED,true);
+        section.setLetterSpacing(.16f);
+        content.addView(section,new LinearLayout.LayoutParams(-1,dp(34)));
+
+        HorizontalScrollView rail=new HorizontalScrollView(this);
+        rail.setHorizontalScrollBarEnabled(false);
+        rail.setClipToPadding(false);
+        rail.setFillViewport(false);
+        rail.setFocusable(false);
+        rail.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        grid=new GridLayout(this);
+        grid.setRowCount(1);
+        grid.setColumnCount(Math.max(1,allApps.size()));
+        grid.setUseDefaultMargins(false);
+        rail.addView(grid,new HorizontalScrollView.LayoutParams(-2,-2));
+        content.addView(rail,new LinearLayout.LayoutParams(-1,dp(252)));
+
+        status=text("",13,MUTED,false);
+        content.addView(status,new LinearLayout.LayoutParams(-1,dp(38)));
+        TextView tip=text("Mantén OK sobre una app para ver sus opciones",12,0xFF7F91B1,false);
+        content.addView(tip,new LinearLayout.LayoutParams(-1,dp(28)));
+
         showFilteredApps();
         if(grid.getChildCount()>0)focusWhenReady(grid.getChildAt(0));
         else focusWhenReady(settings);
@@ -266,24 +319,27 @@ public class TvActivity extends Activity {
         }
     }
     private void showFilteredApps(){
-        grid.removeAllViews(); PackageManager pm=getPackageManager();
-        int width=getResources().getDisplayMetrics().widthPixels;
-        int cardWidth=Math.max(dp(142),(width-dp(150))/5); int count=0;
-        for(ResolveInfo app:allApps){if(matches(app)){addAppCard(app,cardWidth);count++;}}
-        status.setText(count+" aplicaciones  •  Flechas para navegar  •  OK para abrir");
+        grid.removeAllViews(); grid.setRowCount(1);
+        PackageManager pm=getPackageManager();
+        int count=0;
+        for(ResolveInfo app:allApps){if(matches(app)){addAppCard(app,dp(188));count++;}}
+        grid.setColumnCount(Math.max(1,count));
+        status.setText(count+" aplicaciones disponibles");
         if(count==0){
             TextView empty=text("No hay aplicaciones en esta categoría.",16,MUTED,false);
-            grid.addView(empty,new GridLayout.LayoutParams());
+            GridLayout.LayoutParams ep=new GridLayout.LayoutParams();
+            ep.width=dp(420); ep.height=dp(180);
+            grid.addView(empty,ep);
         }
     }
     private void addAppCard(ResolveInfo app,int width){
         LinearLayout card=new LinearLayout(this); card.setOrientation(1); card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(10),dp(12),dp(10),dp(10)); card.setBackground(shape(PANEL,0,18));
+        card.setPadding(dp(14),dp(18),dp(14),dp(14)); card.setBackground(shape(0xCC151F32,0,22));
         makeFocusable(card); card.setClickable(true);
         ImageView icon=new ImageView(this);
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(66),dp(66)));
+        card.addView(icon,new LinearLayout.LayoutParams(dp(88),dp(88)));
         TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),14,TEXT,true);
         name.setGravity(Gravity.CENTER); name.setMaxLines(2);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(42)); lp.topMargin=dp(8); card.addView(name,lp);
@@ -294,8 +350,10 @@ public class TvActivity extends Activity {
             showAppActions(app,card);
             return true;
         });
-        GridLayout.LayoutParams p=new GridLayout.LayoutParams(); p.width=width; p.height=dp(150);
-        p.setMargins(dp(8),dp(8),dp(8),dp(8)); grid.addView(card,p);
+        GridLayout.LayoutParams p=new GridLayout.LayoutParams();
+        p.width=width; p.height=dp(218);
+        p.setMargins(0,dp(10),dp(18),dp(10));
+        grid.addView(card,p);
     }
     private void showAppActions(ResolveInfo app,View appCard){
         if(app==null||app.activityInfo==null)return;
