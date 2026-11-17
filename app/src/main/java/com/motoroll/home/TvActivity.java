@@ -397,7 +397,8 @@ public class TvActivity extends Activity {
                 }
                 if(apkUrl==null||apkUrl.isEmpty())throw new Exception("La versión de GitHub no contiene MotorollTV.apk.");
                 final String downloadUrl=apkUrl;
-                runOnUiThread(()->downloadTvUpdate(downloadUrl,newestVersion));
+                final String versionToDownload=newestVersion;
+                runOnUiThread(()->downloadTvUpdate(downloadUrl,versionToDownload));
             }catch(Exception error){
                 String message=error.getMessage()==null?"Error de conexión":error.getMessage();
                 runOnUiThread(()->Toast.makeText(this,"No se pudo buscar: "+message,Toast.LENGTH_LONG).show());
