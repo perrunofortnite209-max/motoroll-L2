@@ -34,6 +34,15 @@ jobs:
           grep -q "applicationId 'com.motoroll.tv'" app/build.gradle
           grep -q 'android:name="com.motoroll.home.TvActivity"' app/src/main/AndroidManifest.xml
           ! grep -q 'android:name="com.motoroll.home.MainActivity"' app/src/main/AndroidManifest.xml
+      - name: Read TV version
+        id: tv-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n "s/.*versionName '\\([^']*\\)'.*/\\1/p" app/build.gradle | head -n1)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=motoroll-tv-v$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build TV APK
         run: gradle --no-daemon --stacktrace assembleDebug
       - name: Decode permanent signing key
@@ -78,17 +87,18 @@ jobs:
       - name: Upload signed TV APK
         uses: actions/upload-artifact@v4
         with:
-          name: Motoroll-TV-1.0.0
+          name: Motoroll-TV-${{ steps.tv-version.outputs.version }}
           path: app/build/outputs/apk/debug/MotorollTV.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish TV release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: motoroll-tv-v1.0.0
-          name: Motoroll TV 1.0.0
+          tag_name: ${{ steps.tv-version.outputs.tag }}
+          name: Motoroll TV ${{ steps.tv-version.outputs.version }}
           body: |
-            Primera versión independiente de Motoroll TV.
+            Versión independiente de Motoroll TV.
+            Canal de actualizaciones separado del launcher móvil Motoroll Home.
             - Paquete separado: com.motoroll.tv.
             - Solo pantalla de inicio para Android TV / Google TV.
             - Sin bienvenida ni actividad de Motoroll Home móvil.
@@ -96,3 +106,4 @@ jobs:
           files: app/build/outputs/apk/debug/MotorollTV.apk
           fail_on_unmatched_files: true
           overwrite_files: true
+          make_latest: false
