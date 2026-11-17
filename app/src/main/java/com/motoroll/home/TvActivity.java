@@ -57,6 +57,9 @@ public class TvActivity extends Activity {
     private static final int PANEL_FOCUS=Color.rgb(29,48,78), BLUE=Color.rgb(73,145,255);
     private static final int TEXT=Color.rgb(246,248,255), MUTED=Color.rgb(151,164,190);
     private static final String PREFS="motoroll_tv", PREF_WELCOME="welcome_done";
+    private static final String PREF_HOME_SETUP_REQUESTED="home_setup_requested";
+    private boolean homeRecoveryPromptShown;
+    private boolean homeRequestInFlight;
     private LinearLayout root;
     private GridLayout grid;
     private TextView status;
@@ -142,7 +145,9 @@ public class TvActivity extends Activity {
             Uri ready = downloadedUpdateUri;
             downloadedUpdateUri = null;
             launchPackageInstaller(ready);
+            return;
         }
+        getWindow().getDecorView().post(this::checkAndOfferHomeRecovery);
     }
     @Override protected void onDestroy(){
         if (updateReceiverRegistered) {
@@ -640,8 +645,11 @@ public class TvActivity extends Activity {
         addSettingsSectionTitle(content,"DISPOSITIVO");
         View deviceSettings=addSettingsAction(content,"⚙","Ajustes del dispositivo",
                 "Red, pantalla, sonido y más",()->openAndroidTvSettings());
-        addSettingsAction(content,"⌂","Pantalla de inicio",
-                "Elegir MOTOROLL como aplicación de inicio",()->requestDefaultLauncher());
+        boolean motorollIsHome=isDefaultHomeSelected();
+        addSettingsAction(content,"⌂",
+                motorollIsHome?"MOTOROLL ES TU INICIO":"REACTIVAR MOTOROLL",
+                motorollIsHome?"Está seleccionada como pantalla de inicio":"El deco usa otro inicio. Pulsa para volver a elegir MOTOROLL.",
+                ()->requestDefaultLauncher());
         addSettingsAction(content,"↻","Actualizar aplicaciones",
                 "Volver a detectar las aplicaciones instaladas",()->{
                     loadApps();
@@ -752,34 +760,114 @@ public class TvActivity extends Activity {
         Toast.makeText(this,"No se pudieron abrir los ajustes del dispositivo.",Toast.LENGTH_LONG).show();
     }
 
-    private void requestDefaultLauncher(){
+    private boolean isDefaultHomeSelected(){
         try{
             if(Build.VERSION.SDK_INT>=29){
-                RoleManager rm=getSystemService(RoleManager.class);
-                if(rm!=null && rm.isRoleAvailable(RoleManager.ROLE_HOME)){
-                    if(rm.isRoleHeld(RoleManager.ROLE_HOME)){
-                        Toast.makeText(this,"MOTOROLL ya es tu pantalla de inicio",Toast.LENGTH_LONG).show();
-                    }else startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME),410);
-                    return;
+                RoleManager roleManager=getSystemService(RoleManager.class);
+                if(roleManager!=null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)){
+                    return roleManager.isRoleHeld(RoleManager.ROLE_HOME);
                 }
             }
-            Intent i=new Intent("android.settings.HOME_SETTINGS");
-            if(i.resolveActivity(getPackageManager())==null)i=new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
-            startActivity(i);
-        }catch(Exception e){
-            try{startActivity(new Intent(Settings.ACTION_SETTINGS));}
-            catch(Exception ignored){Toast.makeText(this,"Abre Ajustes del sistema para elegir la aplicación de inicio.",Toast.LENGTH_LONG).show();}
-        }
-    }
-    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
-        super.onActivityResult(requestCode,resultCode,data);
-        if(requestCode==410){
-            String message=resultCode==RESULT_OK?"MOTOROLL quedó como pantalla de inicio":"No se cambió la pantalla de inicio";
-            Toast.makeText(this,message,Toast.LENGTH_LONG).show();
-            buildHome();
+            Intent home=new Intent(Intent.ACTION_MAIN);
+            home.addCategory(Intent.CATEGORY_HOME);
+            home.addCategory(Intent.CATEGORY_DEFAULT);
+            ResolveInfo resolved=getPackageManager().resolveActivity(home,PackageManager.MATCH_DEFAULT_ONLY);
+            return resolved!=null && resolved.activityInfo!=null
+                    && getPackageName().equals(resolved.activityInfo.packageName);
+        }catch(Exception ignored){
+            return false;
         }
     }
 
+    private void checkAndOfferHomeRecovery(){
+        if(isFinishing() || isDestroyed() || homeRecoveryPromptShown || homeRequestInFlight)return;
+        if(!getSharedPreferences(PREFS,0).getBoolean(PREF_HOME_SETUP_REQUESTED,false))return;
+        if(isDefaultHomeSelected())return;
+
+        homeRecoveryPromptShown=true;
+        new AlertDialog.Builder(this)
+                .setTitle("El deco volvió al inicio de VTR")
+                .setMessage("El sistema parece haber cambiado la pantalla de inicio. MOTOROLL no puede bloquear por la fuerza el launcher del operador, pero puedes volver a seleccionarlo desde el diálogo del sistema.")
+                .setNegativeButton("Ahora no",(dialog,which)->dialog.dismiss())
+                .setNeutralButton("Ayuda para el control",(dialog,which)->showVtrHomeHelp())
+                .setPositiveButton("Reactivar MOTOROLL",(dialog,which)->requestDefaultLauncher())
+                .show();
+    }
+
+    private void showVtrHomeHelp(){
+        new AlertDialog.Builder(this)
+                .setTitle("Botones del control VTR")
+                .setMessage("En algunos decos VTR, los botones dedicados de TiVo o EXIT pueden abrir directamente la interfaz del operador. Para volver al inicio elegido, prueba el botón HOME (casa) del control.")
+                .setPositiveButton("Entendido",null)
+                .show();
+    }
+
+    private void requestDefaultLauncher(){
+        getSharedPreferences(PREFS,0).edit()
+                .putBoolean(PREF_HOME_SETUP_REQUESTED,true)
+                .apply();
+
+        homeRecoveryPromptShown=true;
+        try{
+            if(Build.VERSION.SDK_INT>=29){
+                RoleManager roleManager=getSystemService(RoleManager.class);
+                if(roleManager!=null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)){
+                    if(roleManager.isRoleHeld(RoleManager.ROLE_HOME)){
+                        Toast.makeText(this,"MOTOROLL ya es tu pantalla de inicio",Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    homeRequestInFlight=true;
+                    startActivityForResult(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME),410);
+                    return;
+                }
+            }
+        }catch(Exception ignored){
+            homeRequestInFlight=false;
+        }
+        openHomeSettingsFallback();
+    }
+
+    private void openHomeSettingsFallback(){
+        String[] actions={
+                "android.settings.HOME_SETTINGS",
+                Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+                Settings.ACTION_SETTINGS
+        };
+        for(String action:actions){
+            try{
+                Intent settings=new Intent(action);
+                homeRequestInFlight=true;
+                startActivityForResult(settings,411);
+                return;
+            }catch(Exception ignored){
+                homeRequestInFlight=false;
+            }
+        }
+        Toast.makeText(this,"No se pudo abrir la selección de pantalla de inicio. Busca Aplicaciones predeterminadas > Aplicación de inicio en Ajustes.",Toast.LENGTH_LONG).show();
+    }
+
+    private void showHomeSelectionResult(){
+        boolean selected=isDefaultHomeSelected();
+        if(selected){
+            Toast.makeText(this,"MOTOROLL quedó seleccionado como inicio",Toast.LENGTH_LONG).show();
+        }else{
+            new AlertDialog.Builder(this)
+                    .setTitle("MOTOROLL no quedó como inicio")
+                    .setMessage("En la pantalla del sistema, entra en Aplicación de inicio y selecciona MOTOROLL. Si el deco vuelve a cambiarlo, abre estos ajustes y pulsa REACTIVAR MOTOROLL. Algunos decos VTR pueden imponer su propio inicio.")
+                    .setNegativeButton("Entendido",null)
+                    .setPositiveButton("Abrir selección otra vez",(dialog,which)->openHomeSettingsFallback())
+                    .show();
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==410 || requestCode==411){
+            homeRequestInFlight=false;
+            showHomeSelectionResult();
+            buildHome();
+        }
+    }
 
     /** Checks only the Motoroll TV release channel; mobile Motoroll Home releases are ignored. */
     private void checkForTvUpdates(){
