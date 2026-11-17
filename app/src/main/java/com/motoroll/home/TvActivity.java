@@ -1135,7 +1135,6 @@ public class TvActivity extends Activity {
         String[] wallpaperNames={"Midnight Blue","Violet Night","Obsidian","Arctic"};
         int[] wallpaperValues={0,2,3,1};
         int[] wallpaperColors={0xFF182B50,0xFF39205B,0xFF080B12,0xFF124653};
-        int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
         int selectedTheme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
 
         for(int i=0;i<wallpaperNames.length;i++){
@@ -1533,8 +1532,8 @@ public class TvActivity extends Activity {
             paint.setShader(null); paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(dp(3)); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
             int pulse=motion?(int)(Math.abs(Math.sin(android.os.SystemClock.uptimeMillis()/5200.0))*5):0;
-            paint.setAlpha(255-pulse);
             paint.setColor(theme==3?0x164DD8E8:(theme==1?0x1B9A6BFF:(theme==2?0x084F82B8:0x123F9EFF)));
+            paint.setAlpha(255-pulse);
             float w=getWidth(), h=getHeight();
             canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
             canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
