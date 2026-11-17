@@ -18,7 +18,7 @@
         android:supportsRtl="true">
         <activity
             android:name="com.motoroll.home.TvActivity"
-            android:label="Motoroll TV"
+            android:label="Motoroll"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
