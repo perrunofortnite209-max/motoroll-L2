@@ -385,7 +385,7 @@ public class TvActivity extends Activity {
                     if(newest==null||compareVersions(version,newestVersion)>0){newest=release;newestVersion=version;}
                 }
                 if(newest==null)throw new Exception("Todavía no hay versiones publicadas de Motoroll TV.");
-                if(compareVersions(newestVersion,"1.0.1")<=0){
+                if(compareVersions(newestVersion,BuildConfig.VERSION_NAME)<=0){
                     runOnUiThread(()->Toast.makeText(this,"Motoroll TV ya está actualizado.",Toast.LENGTH_LONG).show());
                     return;
                 }
