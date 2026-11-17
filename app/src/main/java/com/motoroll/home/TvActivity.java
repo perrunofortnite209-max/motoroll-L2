@@ -305,8 +305,18 @@ public class TvActivity extends Activity {
         AlertDialog dialog=new AlertDialog.Builder(this)
                 .setTitle(appName)
                 .setItems(actions,(d,which)->{
-                    if(which==0)uninstallApp(packageName);
-                    else if(which==1)openAppInfo(packageName);
+                    // Close the menu first: some Android TV package installers refuse
+                    // to open another system activity while an AlertDialog is attached.
+                    d.dismiss();
+                    if(appCard!=null){
+                        appCard.postDelayed(()->{
+                            if(which==0)uninstallApp(packageName);
+                            else if(which==1)openAppInfo(packageName);
+                        },250);
+                    }else{
+                        if(which==0)uninstallApp(packageName);
+                        else if(which==1)openAppInfo(packageName);
+                    }
                 })
                 .setOnDismissListener(d->{
                     if(appCard!=null&&appCard.isAttachedToWindow())appCard.requestFocus();
@@ -322,11 +332,31 @@ public class TvActivity extends Activity {
             Toast.makeText(this,"Esta aplicación no se puede desinstalar desde aquí.",Toast.LENGTH_LONG).show();
             return;
         }
+        Uri packageUri=Uri.parse("package:"+packageName);
         try{
-            Intent uninstall=new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+packageName));
+            // Preferred uninstall flow on Android 8+ (including Android TV).
+            Intent uninstall=new Intent(Intent.ACTION_UNINSTALL_PACKAGE);
+            uninstall.setData(packageUri);
+            uninstall.putExtra(Intent.EXTRA_RETURN_RESULT,true);
             startActivity(uninstall);
-        }catch(Exception e){
-            Toast.makeText(this,"Android no permite desinstalar esta aplicación.",Toast.LENGTH_LONG).show();
+            return;
+        }catch(Exception firstError){
+            // Compatibility fallback for TV builds with an older package installer.
+            try{
+                Intent legacy=new Intent(Intent.ACTION_DELETE);
+                legacy.setData(packageUri);
+                startActivity(legacy);
+                return;
+            }catch(Exception secondError){
+                // At least leave the user on the system app page, where uninstall
+                // may still be available even if the TV image omits the uninstall UI.
+                try{
+                    openAppInfo(packageName);
+                    Toast.makeText(this,"No se abrió el desinstalador. Revisa la opción Desinstalar en Información de la aplicación.",Toast.LENGTH_LONG).show();
+                }catch(Exception ignored){
+                    Toast.makeText(this,"Este televisor no ofrece una pantalla para desinstalar esta aplicación.",Toast.LENGTH_LONG).show();
+                }
+            }
         }
     }
     private void openAppInfo(String packageName){
