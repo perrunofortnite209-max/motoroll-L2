@@ -129,6 +129,11 @@ public class TvActivity extends Activity {
             default:return 0xFFB47BFF;
         }
     }
+    private int iconSize(int base){
+        int size=getSharedPreferences(PREFS,0).getInt("icon_scale",1);
+        float factor=size==0?0.86f:(size==2?1.14f:1f);
+        return Math.round(base*factor);
+    }
     private int getThemeFocus(){
         switch(getSharedPreferences(PREFS,0).getInt(PREF_THEME,1)){
             case 0:return 0xFF1B355B;
@@ -355,7 +360,7 @@ public class TvActivity extends Activity {
         ImageView logo=new ImageView(this);
         logo.setImageResource(R.drawable.ic_motoroll_tv);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(iconSize(48)),dp(iconSize(48))));
 
         TextView brand=text("MOTOROLL",23,TEXT,true);
         brand.setLetterSpacing(.20f);
@@ -526,7 +531,7 @@ public class TvActivity extends Activity {
             appIcon.setImageResource(R.drawable.ic_motoroll_tv);
         }
         appIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        featureSide.addView(appIcon,new LinearLayout.LayoutParams(dp(66),dp(66)));
+        featureSide.addView(appIcon,new LinearLayout.LayoutParams(dp(iconSize(66)),dp(iconSize(66))));
 
         TextView featureLabel=text(featured==null?"LISTO PARA TI":
                 String.valueOf(featured.loadLabel(getPackageManager())),11,TEXT,true);
@@ -594,7 +599,7 @@ public class TvActivity extends Activity {
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}
         catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        card.addView(icon,new LinearLayout.LayoutParams(dp(iconSize(48)),dp(iconSize(48))));
 
         LinearLayout copy=new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -749,7 +754,7 @@ public class TvActivity extends Activity {
         ImageView icon=new ImageView(this);
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(60),dp(60)));
+        card.addView(icon,new LinearLayout.LayoutParams(dp(iconSize(60)),dp(iconSize(60))));
 
         TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),13,TEXT,true);
         name.setGravity(Gravity.CENTER);
@@ -873,7 +878,7 @@ public class TvActivity extends Activity {
         ImageView icon=new ImageView(this);
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(64),dp(64)));
+        card.addView(icon,new LinearLayout.LayoutParams(dp(iconSize(64)),dp(iconSize(64))));
         TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),12,TEXT,true);
         name.setGravity(Gravity.CENTER); name.setMaxLines(2);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(38)); lp.topMargin=dp(7); card.addView(name,lp);
@@ -1010,7 +1015,7 @@ public class TvActivity extends Activity {
         TextView symbol=text(glyph,22,BLUE,true);
         symbol.setGravity(Gravity.CENTER);
         symbol.setBackground(shape(0x263B82D6,0,14));
-        card.addView(symbol,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        card.addView(symbol,new LinearLayout.LayoutParams(dp(iconSize(48)),dp(iconSize(48))));
 
         LinearLayout copy=new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -1122,6 +1127,14 @@ public class TvActivity extends Activity {
                 });
 
         addSettingsSectionTitle(content,"APARIENCIA");
+        int iconScale=getSharedPreferences(PREFS,0).getInt("icon_scale",1);
+        String[] iconScaleNames={"Pequeños","Medianos","Grandes"};
+        addSettingsAction(content,"▦","Tamaño de iconos: "+iconScaleNames[Math.max(0,Math.min(2,iconScale))],
+                "Cambia el tamaño de los iconos de las aplicaciones",
+                ()->{
+                    getSharedPreferences(PREFS,0).edit().putInt("icon_scale",(iconScale+1)%3).apply();
+                    buildSettings();
+                });
         TextView wallpaperDescription=text("Elige el ambiente que más te guste.",13,MUTED,false);
         content.addView(wallpaperDescription,new LinearLayout.LayoutParams(-1,dp(28)));
 
