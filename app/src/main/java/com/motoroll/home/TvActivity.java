@@ -304,7 +304,7 @@ public class TvActivity extends Activity {
         contentScroll.addView(sections,new ScrollView.LayoutParams(-1,-2));
         root.addView(contentScroll,new LinearLayout.LayoutParams(-1,0,1));
 
-        status=text("",12,MUTED,false);
+        status=text(allApps.size()+" aplicaciones instaladas",12,MUTED,false);
         root.addView(status,new LinearLayout.LayoutParams(-1,dp(26)));
         TextView tip=text("OK para abrir  ·  Mantén OK para opciones  ·  MENÚ para ajustes",11,0xFF7F91B1,false);
         root.addView(tip,new LinearLayout.LayoutParams(-1,dp(24)));
@@ -314,6 +314,7 @@ public class TvActivity extends Activity {
             addAppSection(sections,"Juegos","Juegos");
             addAppSection(sections,"Vídeo y streaming","Vídeo");
             addAppSection(sections,"Música","Música");
+            addAppSection(sections,"Otras aplicaciones","Otros");
         }else{
             addAppSection(sections,selectedCategory,selectedCategory);
         }
