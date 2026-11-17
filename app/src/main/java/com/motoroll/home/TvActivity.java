@@ -68,6 +68,7 @@ public class TvActivity extends Activity {
     private final Handler idleHandler=new Handler(Looper.getMainLooper());
     private final Runnable ambientRunnable=this::showAmbientMode;
     private boolean ambientShowing;
+    private boolean activityResumed;
     private FrameLayout screenFrame;
     private FrameLayout ambientOverlay;
     private View ambientReturnFocus;
@@ -168,6 +169,8 @@ public class TvActivity extends Activity {
     }
     @Override protected void onResume(){
         super.onResume();
+        activityResumed=true;
+        scheduleAmbientMode();
         if (downloadedUpdateUri != null && Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) {
             Uri ready = downloadedUpdateUri;
             downloadedUpdateUri = null;
@@ -180,6 +183,11 @@ public class TvActivity extends Activity {
                 if(!isFinishing() && showingSettings) buildSettings();
             },250);
         }
+    }
+    @Override protected void onPause(){
+        activityResumed=false;
+        idleHandler.removeCallbacks(ambientRunnable);
+        super.onPause();
     }
     @Override protected void onDestroy(){
         if (updateReceiverRegistered) {
@@ -212,13 +220,13 @@ public class TvActivity extends Activity {
 
     private void scheduleAmbientMode(){
         idleHandler.removeCallbacks(ambientRunnable);
-        if(ambientShowing || screenFrame==null || isFinishing())return;
+        if(ambientShowing || screenFrame==null || isFinishing() || !activityResumed)return;
         if(!getSharedPreferences(PREFS,0).getBoolean(PREF_AMBIENT,true))return;
         idleHandler.postDelayed(ambientRunnable,AMBIENT_IDLE_MS);
     }
 
     private void showAmbientMode(){
-        if(ambientShowing || screenFrame==null || isFinishing()
+        if(ambientShowing || screenFrame==null || isFinishing() || !activityResumed
                 || !getSharedPreferences(PREFS,0).getBoolean(PREF_AMBIENT,true))return;
         View current=getCurrentFocus();
         if(current!=null && current.isAttachedToWindow())ambientReturnFocus=current;
@@ -463,6 +471,9 @@ public class TvActivity extends Activity {
 
         TextView open=button(featured==null?"EXPLORAR APLICACIONES":"ABRIR "+String.valueOf(featured.loadLabel(getPackageManager())).toUpperCase());
         open.setTextSize(11);
+        open.setMaxLines(1);
+        open.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        open.setMaxWidth(dp(250));
         open.setPadding(dp(16),0,dp(16),0);
         open.setBackground(shape(0xFF397EEB,0xFF80BFFF,14));
         LinearLayout.LayoutParams openLp=new LinearLayout.LayoutParams(-2,dp(42));
@@ -589,6 +600,7 @@ public class TvActivity extends Activity {
 
     private void buildHome(){
         showingSettings=false;
+        selectedCategory="Todo";
         prepareRoot();
 
         LinearLayout header=new LinearLayout(this);
