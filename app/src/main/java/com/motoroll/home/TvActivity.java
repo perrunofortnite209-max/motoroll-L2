@@ -1,8 +1,14 @@
 package com.motoroll.home;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.role.RoleManager;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import android.net.Uri;
+import android.os.Environment;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -29,6 +35,14 @@ import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -48,6 +62,25 @@ public class TvActivity extends Activity {
     private final List<ResolveInfo> allApps=new ArrayList<>();
     private String selectedCategory="Todo";
     private View pendingFocus;
+    private Uri downloadedUpdateUri;
+    private long updateDownloadId = -1L;
+    private boolean updateReceiverRegistered;
+    private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) return;
+            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
+            if (id != updateDownloadId) return;
+            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            if (manager == null) return;
+            downloadedUpdateUri = manager.getUriForDownloadedFile(id);
+            if (downloadedUpdateUri == null) {
+                Toast.makeText(TvActivity.this, "No se pudo descargar la actualización.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            Toast.makeText(TvActivity.this, "Actualización descargada. Preparando instalación…", Toast.LENGTH_LONG).show();
+            installDownloadedUpdate();
+        }
+    };
 
     private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+0.5f);}
     private GradientDrawable shape(int color,int stroke,float radius){
@@ -74,11 +107,30 @@ public class TvActivity extends Activity {
     }
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        IntentFilter updateFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateReceiver, updateFilter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(updateReceiver, updateFilter);
+        updateReceiverRegistered = true;
         getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(5894|1024|512);
         loadApps();
         if(!getSharedPreferences(PREFS,0).getBoolean(PREF_WELCOME,false)) buildWelcome();
         else buildHome();
+    }
+    @Override protected void onResume(){
+        super.onResume();
+        if (downloadedUpdateUri != null && Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) {
+            Uri ready = downloadedUpdateUri;
+            downloadedUpdateUri = null;
+            launchPackageInstaller(ready);
+        }
+    }
+    @Override protected void onDestroy(){
+        if (updateReceiverRegistered) {
+            try { unregisterReceiver(updateReceiver); } catch (Exception ignored) { }
+            updateReceiverRegistered = false;
+        }
+        super.onDestroy();
     }
     @Override public void onWindowFocusChanged(boolean hasFocus){
         super.onWindowFocusChanged(hasFocus);
@@ -101,8 +153,17 @@ public class TvActivity extends Activity {
     }
     private void addBrandHeader(String rightLabel){
         LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand=text("MOTOROLL",25,TEXT,true); brand.setLetterSpacing(.18f);
-        header.addView(brand,new LinearLayout.LayoutParams(0,dp(48),1));
+        LinearLayout brandGroup=new LinearLayout(this); brandGroup.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView logo=new ImageView(this); logo.setImageResource(R.drawable.ic_motoroll);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(46),dp(46)));
+        LinearLayout wordmark=new LinearLayout(this); wordmark.setOrientation(LinearLayout.VERTICAL);
+        TextView brand=text("MOTOROLL",22,TEXT,true); brand.setLetterSpacing(.18f);
+        TextView edition=text("TV  •  MOTOROLL OS",10,BLUE,true); edition.setLetterSpacing(.16f);
+        wordmark.addView(brand); wordmark.addView(edition);
+        LinearLayout.LayoutParams wordmarkLp=new LinearLayout.LayoutParams(-2,-2); wordmarkLp.leftMargin=dp(12);
+        brandGroup.addView(wordmark,wordmarkLp);
+        header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(52),1));
         TextClock clock=new TextClock(this); clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
         clock.setTextColor(TEXT); clock.setTextSize(20); header.addView(clock);
         root.addView(header);
@@ -252,8 +313,14 @@ public class TvActivity extends Activity {
         refresh.setGravity(Gravity.CENTER_VERTICAL); refresh.setPadding(dp(22),0,dp(22),0);
         refresh.setOnClickListener(v->{loadApps();selectedCategory="Todo";buildHome();});
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(760),dp(64));rp.topMargin=dp(14);options.addView(refresh,rp);
+        TextView updates=button("⇧   Buscar actualizaciones de Motoroll TV");
+        updates.setGravity(Gravity.CENTER_VERTICAL); updates.setPadding(dp(22),0,dp(22),0);
+        updates.setOnClickListener(v->checkForTvUpdates());
+        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(dp(760),dp(64));up.topMargin=dp(14);options.addView(updates,up);
+        TextView channel=text("Canal independiente de GitHub  ·  Motoroll TV  ·  com.motoroll.tv",13,BLUE,false);
         root.addView(options);
-        TextView note=text("Puedes cambiar el launcher predeterminado desde los ajustes del sistema cuando quieras.",14,MUTED,false);
+        root.addView(channel,new LinearLayout.LayoutParams(-1,dp(38)));
+        TextView note=text("Las actualizaciones de Motoroll TV se descargan desde su propio canal de GitHub. Motoroll Home del teléfono conserva su canal y sus versiones independientes.",14,MUTED,false);
         root.addView(note,new LinearLayout.LayoutParams(dp(820),dp(64)));
         TextView back=button("←   VOLVER A MIS APLICACIONES");
         back.setBackground(shape(PANEL_FOCUS,BLUE,16));
@@ -286,6 +353,108 @@ public class TvActivity extends Activity {
             String message=resultCode==RESULT_OK?"Motoroll TV quedó como launcher predeterminado":"No se cambió el launcher predeterminado";
             Toast.makeText(this,message,Toast.LENGTH_LONG).show();
             buildHome();
+        }
+    }
+
+
+    /** Checks only the Motoroll TV release channel; mobile Motoroll Home releases are ignored. */
+    private void checkForTvUpdates(){
+        Toast.makeText(this,"Conectando con GitHub…",Toast.LENGTH_SHORT).show();
+        new Thread(()->{
+            HttpURLConnection connection=null;
+            try{
+                URL url=new URL("https://api.github.com/repos/perrunofortnite209-max/motoroll-L2/releases?per_page=100");
+                connection=(HttpURLConnection)url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(12000); connection.setReadTimeout(15000);
+                connection.setRequestProperty("Accept","application/vnd.github+json");
+                connection.setRequestProperty("User-Agent","Motoroll-TV-Updater");
+                int code=connection.getResponseCode();
+                if(code<200||code>=300)throw new Exception("GitHub respondió "+code);
+                BufferedReader reader=new BufferedReader(new InputStreamReader(connection.getInputStream(),"UTF-8"));
+                StringBuilder body=new StringBuilder(); String line;
+                while((line=reader.readLine())!=null)body.append(line);
+                reader.close();
+                JSONArray releases=new JSONArray(body.toString());
+                JSONObject newest=null; String newestVersion=null;
+                for(int i=0;i<releases.length();i++){
+                    JSONObject release=releases.getJSONObject(i);
+                    String tag=release.optString("tag_name","");
+                    if(!tag.startsWith("motoroll-tv-v")||release.optBoolean("draft",false)||release.optBoolean("prerelease",false))continue;
+                    String version=tag.substring("motoroll-tv-v".length());
+                    if(newest==null||compareVersions(version,newestVersion)>0){newest=release;newestVersion=version;}
+                }
+                if(newest==null)throw new Exception("Todavía no hay versiones publicadas de Motoroll TV.");
+                if(compareVersions(newestVersion,"1.0.1")<=0){
+                    runOnUiThread(()->Toast.makeText(this,"Motoroll TV ya está actualizado.",Toast.LENGTH_LONG).show());
+                    return;
+                }
+                JSONArray assets=newest.optJSONArray("assets");
+                String apkUrl=null;
+                if(assets!=null)for(int i=0;i<assets.length();i++){
+                    JSONObject asset=assets.getJSONObject(i);
+                    if("MotorollTV.apk".equals(asset.optString("name"))){apkUrl=asset.optString("browser_download_url");break;}
+                }
+                if(apkUrl==null||apkUrl.isEmpty())throw new Exception("La versión de GitHub no contiene MotorollTV.apk.");
+                final String downloadUrl=apkUrl;
+                runOnUiThread(()->downloadTvUpdate(downloadUrl,newestVersion));
+            }catch(Exception error){
+                String message=error.getMessage()==null?"Error de conexión":error.getMessage();
+                runOnUiThread(()->Toast.makeText(this,"No se pudo buscar: "+message,Toast.LENGTH_LONG).show());
+            }finally{if(connection!=null)connection.disconnect();}
+        }).start();
+    }
+    private int compareVersions(String a,String b){
+        if(b==null)return 1;
+        String[] aa=a.split("\\."),bb=b.split("\\.");
+        for(int i=0;i<Math.max(aa.length,bb.length);i++){
+            int x=i<aa.length?parseVersionPart(aa[i]):0;
+            int y=i<bb.length?parseVersionPart(bb[i]):0;
+            if(x!=y)return Integer.compare(x,y);
+        }
+        return 0;
+    }
+    private int parseVersionPart(String value){
+        try{return Integer.parseInt(value.replaceAll("[^0-9].*$",""));}catch(Exception ignored){return 0;}
+    }
+    private void downloadTvUpdate(String url,String version){
+        try{
+            DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+            if(manager==null)throw new Exception("Descargas no está disponible en este dispositivo.");
+            DownloadManager.Request request=new DownloadManager.Request(Uri.parse(url));
+            request.setTitle("Motoroll TV "+version);
+            request.setDescription("Descargando actualización desde GitHub");
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalFilesDir(this,Environment.DIRECTORY_DOWNLOADS,"MotorollTV-update.apk");
+            updateDownloadId=manager.enqueue(request);
+            Toast.makeText(this,"Descargando Motoroll TV "+version+"…",Toast.LENGTH_LONG).show();
+        }catch(Exception error){
+            Toast.makeText(this,"No se pudo iniciar la descarga: "+error.getMessage(),Toast.LENGTH_LONG).show();
+        }
+    }
+    private void installDownloadedUpdate(){
+        if(downloadedUpdateUri==null)return;
+        if(Build.VERSION.SDK_INT>=26&&!getPackageManager().canRequestPackageInstalls()){
+            Toast.makeText(this,"Permite instalar aplicaciones desconocidas para completar la actualización.",Toast.LENGTH_LONG).show();
+            try{
+                Intent settings=new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()));
+                settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(settings);
+            }catch(Exception ignored){
+                startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
+            }
+            return;
+        }
+        Uri ready=downloadedUpdateUri; downloadedUpdateUri=null;
+        launchPackageInstaller(ready);
+    }
+    private void launchPackageInstaller(Uri apk){
+        try{
+            Intent install=new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(apk,"application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(install);
+        }catch(Exception error){
+            Toast.makeText(this,"No se pudo abrir el instalador: "+error.getMessage(),Toast.LENGTH_LONG).show();
         }
     }
 
