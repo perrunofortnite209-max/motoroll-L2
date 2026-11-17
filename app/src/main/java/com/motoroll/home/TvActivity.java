@@ -148,6 +148,11 @@ public class TvActivity extends Activity {
             return;
         }
         getWindow().getDecorView().post(this::checkAndOfferHomeRecovery);
+        if(showingSettings){
+            getWindow().getDecorView().postDelayed(()->{
+                if(!isFinishing() && showingSettings) buildSettings();
+            },250);
+        }
     }
     @Override protected void onDestroy(){
         if (updateReceiverRegistered) {
@@ -657,6 +662,12 @@ public class TvActivity extends Activity {
                     buildHome();
                 });
 
+        boolean recoveryEnabled=isRecoveryAccessibilityEnabled();
+        addSettingsAction(content,"◎",
+                recoveryEnabled?"Recuperación por accesibilidad: ACTIVADA":"Recuperación por accesibilidad",
+                recoveryEnabled?"Vigila cuándo el inicio del deco vuelve a abrirse":"Opcional: ayuda a recuperar MOTOROLL si VTR abre su propio inicio",
+                ()->openRecoveryAccessibilitySettings());
+
         addSettingsSectionTitle(content,"APARIENCIA");
         TextView wallpaperDescription=text("Elige el ambiente que más te guste.",13,MUTED,false);
         content.addView(wallpaperDescription,new LinearLayout.LayoutParams(-1,dp(28)));
@@ -844,6 +855,39 @@ public class TvActivity extends Activity {
             }
         }
         Toast.makeText(this,"No se pudo abrir la selección de pantalla de inicio. Busca Aplicaciones predeterminadas > Aplicación de inicio en Ajustes.",Toast.LENGTH_LONG).show();
+    }
+
+    private boolean isRecoveryAccessibilityEnabled(){
+        try{
+            String enabled=Settings.Secure.getString(getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if(enabled==null)return false;
+            String component=new android.content.ComponentName(this,
+                    LauncherRecoveryAccessibilityService.class).flattenToString();
+            for(String entry:enabled.split(":")){
+                if(component.equalsIgnoreCase(entry))return true;
+            }
+        }catch(Exception ignored){}
+        return false;
+    }
+
+    private void openRecoveryAccessibilitySettings(){
+        boolean enabled=isRecoveryAccessibilityEnabled();
+        String message=enabled
+                ?"La recuperación por accesibilidad está activada. MOTOROLL detectará cuando el inicio predeterminado del deco vuelva a abrirse y traerá MOTOROLL al frente. No cambia por la fuerza la preferencia HOME del sistema."
+                :"Activa “Recuperación de MOTOROLL” en la lista de servicios de accesibilidad. El servicio solo observa qué aplicación abrió la ventana de inicio; no lee textos, contraseñas ni el contenido de las aplicaciones. No cambia por la fuerza la preferencia HOME del sistema.";
+        new AlertDialog.Builder(this)
+                .setTitle(enabled?"Recuperación activada":"Recuperación por accesibilidad")
+                .setMessage(message)
+                .setNegativeButton("Cerrar",null)
+                .setPositiveButton(enabled?"Abrir accesibilidad":"Abrir ajustes",(dialog,which)->{
+                    try{
+                        startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    }catch(Exception e){
+                        Toast.makeText(this,"No se pudieron abrir los ajustes de accesibilidad.",Toast.LENGTH_LONG).show();
+                    }
+                })
+                .show();
     }
 
     private void showHomeSelectionResult(){
