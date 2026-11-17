@@ -175,33 +175,43 @@ public class TvActivity extends Activity {
         b.setPadding(dp(22),dp(8),dp(22),dp(8)); makeFocusable(b); return b;
     }
     private void addBrandHeader(String rightLabel){
-        LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout brandGroup=new LinearLayout(this); brandGroup.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView logo=new ImageView(this); logo.setImageResource(R.drawable.ic_motoroll_tv);
+        LinearLayout header=new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout brandGroup=new LinearLayout(this);
+        brandGroup.setGravity(Gravity.CENTER_VERTICAL);
+
+        ImageView logo=new ImageView(this);
+        logo.setImageResource(R.drawable.ic_motoroll_tv);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(46),dp(46)));
-        LinearLayout wordmark=new LinearLayout(this); wordmark.setOrientation(LinearLayout.VERTICAL);
-        TextView brand=text("MOTOROLL",22,TEXT,true); brand.setLetterSpacing(.18f);
-        TextView edition=text("TV  •  MOTOROLL OS",10,BLUE,true); edition.setLetterSpacing(.16f);
-        wordmark.addView(brand); wordmark.addView(edition);
-        LinearLayout.LayoutParams wordmarkLp=new LinearLayout.LayoutParams(-2,-2); wordmarkLp.leftMargin=dp(12);
-        brandGroup.addView(wordmark,wordmarkLp);
-        header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(52),1));
-        TextClock clock=new TextClock(this); clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
-        clock.setTextColor(TEXT); clock.setTextSize(20); header.addView(clock);
-        root.addView(header);
-        TextView sub=text(rightLabel,14,MUTED,false);
-        root.addView(sub,new LinearLayout.LayoutParams(-1,dp(32)));
+        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(48),dp(48)));
+
+        TextView brand=text("MOTOROLL",23,TEXT,true);
+        brand.setLetterSpacing(.20f);
+        LinearLayout.LayoutParams brandLp=new LinearLayout.LayoutParams(-2,dp(48));
+        brandLp.leftMargin=dp(12);
+        brandGroup.addView(brand,brandLp);
+
+        header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(58),1));
+
+        TextView section=text(rightLabel,10,BLUE,true);
+        section.setLetterSpacing(.14f);
+        section.setGravity(Gravity.CENTER);
+        section.setPadding(dp(16),dp(9),dp(16),dp(9));
+        section.setBackground(shape(0x263B82D6,0,22));
+        header.addView(section,new LinearLayout.LayoutParams(-2,dp(36)));
+
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(62)));
     }
 
     private void buildWelcome(){
         prepareRoot(); addBrandHeader("TU TELEVISOR, TU ESPACIO");
         View spacer=new View(this); root.addView(spacer,new LinearLayout.LayoutParams(1,0,1));
-        TextView eyebrow=text("MOTOROLL TV  /  HOME",13,BLUE,true); eyebrow.setLetterSpacing(.14f);
+        TextView eyebrow=text("UN INICIO A TU MEDIDA",13,BLUE,true); eyebrow.setLetterSpacing(.14f);
         root.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(30)));
-        TextView title=text("Todo tu entretenimiento.\nEn un solo lugar.",36,TEXT,true);
+        TextView title=text("Todo tu entretenimiento.\nA tu manera.",36,TEXT,true);
         title.setLineSpacing(dp(5),1f); root.addView(title,new LinearLayout.LayoutParams(dp(850),dp(112)));
-        TextView desc=text("Tus aplicaciones, organizadas y listas para abrir con tu control remoto.",18,MUTED,false);
+        TextView desc=text("Tus aplicaciones favoritas, ordenadas y listas para disfrutar.",18,MUTED,false);
         root.addView(desc,new LinearLayout.LayoutParams(dp(760),dp(58)));
         TextView start=button("EMPEZAR  〉");
         start.setTextSize(17); start.setBackground(shape(BLUE,BLUE,16));
@@ -247,8 +257,7 @@ public class TvActivity extends Activity {
         LinearLayout brandText=new LinearLayout(this);
         brandText.setOrientation(LinearLayout.VERTICAL);
         TextView brand=text("MOTOROLL",24,TEXT,true); brand.setLetterSpacing(.20f);
-        TextView edition=text("TV  /  MOTOROLL OS",10,BLUE,true); edition.setLetterSpacing(.18f);
-        brandText.addView(brand); brandText.addView(edition);
+        brandText.addView(brand);
         LinearLayout.LayoutParams brandTextLp=new LinearLayout.LayoutParams(-2,-2);
         brandTextLp.leftMargin=dp(13); brandGroup.addView(brandText,brandTextLp);
         header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(60),1));
@@ -257,19 +266,19 @@ public class TvActivity extends Activity {
         clock.setTextColor(TEXT); clock.setTextSize(20); clock.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         header.addView(clock);
         TextView androidSettings=button("⚙");
-        androidSettings.setContentDescription("Configuración de Android TV");
+        androidSettings.setContentDescription("Ajustes del dispositivo");
         androidSettings.setTextSize(20); androidSettings.setBackground(shape(0xCC17243A,0,14));
         LinearLayout.LayoutParams sysLp=new LinearLayout.LayoutParams(dp(52),dp(48));
         sysLp.leftMargin=dp(18); header.addView(androidSettings,sysLp);
         androidSettings.setOnClickListener(v->openAndroidTvSettings());
-        TextView menu=button("☰  MENÚ"); menu.setTextSize(13);
+        TextView menu=button("☰  AJUSTES"); menu.setTextSize(13);
         menu.setBackground(shape(0xCC17243A,BLUE,14));
         LinearLayout.LayoutParams menuLp=new LinearLayout.LayoutParams(dp(136),dp(48));
         menuLp.leftMargin=dp(10); header.addView(menu,menuLp);
         menu.setOnClickListener(v->buildSettings());
         root.addView(header,new LinearLayout.LayoutParams(-1,dp(68)));
         LinearLayout sectionHeader=new LinearLayout(this); sectionHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView subtitle=text("TU ESPACIO DIGITAL",12,BLUE,true); subtitle.setLetterSpacing(.20f);
+        TextView subtitle=text("TU BIBLIOTECA",12,BLUE,true); subtitle.setLetterSpacing(.20f);
         sectionHeader.addView(subtitle,new LinearLayout.LayoutParams(0,dp(34),1));
         TextView count=text(allApps.size()+" APPS",10,MUTED,true); count.setLetterSpacing(.12f);
         sectionHeader.addView(count); root.addView(sectionHeader,new LinearLayout.LayoutParams(-1,dp(38)));
@@ -284,7 +293,7 @@ public class TvActivity extends Activity {
         addFlauncherSection(sections,"ENTRETENIMIENTO",true);
         status=text("LISTO PARA DISFRUTAR",10,MUTED,true); status.setLetterSpacing(.12f);
         root.addView(status,new LinearLayout.LayoutParams(-1,dp(22)));
-        TextView tip=text("OK ABRIR   •   MANTENER OK: OPCIONES   •   MENÚ: AJUSTES",9,0xFF8295B8,false);
+        TextView tip=text("OK ABRIR   •   MANTENER OK: OPCIONES   •   AJUSTES",10,0xFF8295B8,false);
         tip.setLetterSpacing(.06f); root.addView(tip,new LinearLayout.LayoutParams(-1,dp(20)));
         if(firstApp!=null)focusWhenReady(firstApp); else focusWhenReady(menu);
     }
@@ -322,17 +331,17 @@ public class TvActivity extends Activity {
         LinearLayout card=new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(8),dp(9),dp(8),dp(7));
-        card.setBackground(shape(0x99141D2E,0,12));
+        card.setPadding(dp(10),dp(10),dp(10),dp(8));
+        card.setBackground(shape(0xAA141D2E,0x263B5F91,16));
         makeFocusable(card);
         card.setClickable(true);
 
         ImageView icon=new ImageView(this);
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(54),dp(54)));
+        card.addView(icon,new LinearLayout.LayoutParams(dp(60),dp(60)));
 
-        TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),12,TEXT,true);
+        TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),13,TEXT,true);
         name.setGravity(Gravity.CENTER);
         name.setMaxLines(2);
         name.setMinLines(2);
@@ -348,7 +357,7 @@ public class TvActivity extends Activity {
         card.setOnLongClickListener(v->{showAppActions(app,card);return true;});
 
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=dp(cardWidth);p.height=dp(132);
+        p.width=dp(cardWidth);p.height=dp(142);
         p.setMargins(0,dp(4),dp(8),dp(5));
         target.addView(card,p);
     }
@@ -558,115 +567,172 @@ public class TvActivity extends Activity {
         }catch(Exception e){Toast.makeText(this,"No se pudo abrir la aplicación",Toast.LENGTH_SHORT).show();}
     }
 
+    private void addSettingsSectionTitle(LinearLayout parent,String caption){
+        TextView label=text(caption,11,BLUE,true);
+        label.setLetterSpacing(.18f);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(30));
+        lp.topMargin=dp(17);
+        parent.addView(label,lp);
+    }
+
+    private View addSettingsAction(LinearLayout parent,String glyph,String titleText,
+                                   String detailText,Runnable action){
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(14),dp(9),dp(16),dp(9));
+        card.setBackground(shape(0xAA141D2E,0x263B5F91,18));
+        makeFocusable(card);
+        card.setClickable(true);
+
+        TextView symbol=text(glyph,22,BLUE,true);
+        symbol.setGravity(Gravity.CENTER);
+        symbol.setBackground(shape(0x263B82D6,0,14));
+        card.addView(symbol,new LinearLayout.LayoutParams(dp(48),dp(48)));
+
+        LinearLayout copy=new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title=text(titleText,15,TEXT,true);
+        TextView detail=text(detailText,11,MUTED,false);
+        detail.setSingleLine(true);
+        detail.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        copy.addView(title,new LinearLayout.LayoutParams(-1,dp(25)));
+        copy.addView(detail,new LinearLayout.LayoutParams(-1,dp(20)));
+        LinearLayout.LayoutParams copyLp=new LinearLayout.LayoutParams(0,-2,1);
+        copyLp.leftMargin=dp(15);
+        card.addView(copy,copyLp);
+
+        TextView arrow=text("›",27,MUTED,false);
+        arrow.setGravity(Gravity.CENTER);
+        card.addView(arrow,new LinearLayout.LayoutParams(dp(25),-1));
+        card.setOnClickListener(v->action.run());
+
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(70));
+        lp.bottomMargin=dp(9);
+        parent.addView(card,lp);
+        return card;
+    }
+
     private void buildSettings(){
         showingSettings=true;
         prepareRoot();
-        addBrandHeader("MENÚ MOTOROLL TV");
+        addBrandHeader("AJUSTES");
 
-        // Keep the settings content inside its own vertical scroll area so every
-        // option remains reachable on short 720p/1080p TV screens.
         ScrollView settingsScroll=new ScrollView(this);
-        settingsScroll.setFillViewport(true);
-        settingsScroll.setVerticalScrollBarEnabled(true);
+        settingsScroll.setFillViewport(false);
+        settingsScroll.setVerticalScrollBarEnabled(false);
         settingsScroll.setClipToPadding(false);
         settingsScroll.setFocusable(false);
         settingsScroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
         LinearLayout content=new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(0,dp(8),0,dp(30));
+        content.setPadding(dp(3),dp(8),dp(3),dp(38));
         settingsScroll.addView(content,new ScrollView.LayoutParams(-1,-2));
         root.addView(settingsScroll,new LinearLayout.LayoutParams(-1,0,1));
 
-        TextView title=text("Ajustes del launcher",29,TEXT,true);
-        content.addView(title,new LinearLayout.LayoutParams(-1,dp(58)));
-        TextView description=text("Configura Motoroll TV como pantalla de inicio y administra su comportamiento.",15,MUTED,false);
-        description.setMaxLines(2);
-        content.addView(description,new LinearLayout.LayoutParams(-1,dp(52)));
+        TextView title=text("Personaliza tu espacio",30,TEXT,true);
+        content.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));
+        TextView description=text("Un inicio más limpio, cómodo y hecho a tu gusto.",15,MUTED,false);
+        content.addView(description,new LinearLayout.LayoutParams(-1,dp(36)));
 
-        LinearLayout options=new LinearLayout(this);
-        options.setOrientation(LinearLayout.VERTICAL);
-        content.addView(options,new LinearLayout.LayoutParams(-1,-2));
+        addSettingsSectionTitle(content,"DISPOSITIVO");
+        View deviceSettings=addSettingsAction(content,"⚙","Ajustes del dispositivo",
+                "Red, pantalla, sonido y más",()->openAndroidTvSettings());
+        addSettingsAction(content,"⌂","Pantalla de inicio",
+                "Elegir MOTOROLL como aplicación de inicio",()->requestDefaultLauncher());
+        addSettingsAction(content,"↻","Actualizar aplicaciones",
+                "Volver a detectar las aplicaciones instaladas",()->{
+                    loadApps();
+                    selectedCategory="Todo";
+                    buildHome();
+                });
 
-        TextView androidSettings=button("⚙   Abrir configuración de Android TV");
-        androidSettings.setGravity(Gravity.CENTER_VERTICAL);
-        androidSettings.setPadding(dp(22),0,dp(22),0);
-        androidSettings.setOnClickListener(v->openAndroidTvSettings());
-        options.addView(androidSettings,new LinearLayout.LayoutParams(-1,dp(60)));
-
-        TextView home=button("⌂   Establecer Motoroll TV como launcher predeterminado");
-        home.setGravity(Gravity.CENTER_VERTICAL);
-        home.setPadding(dp(22),0,dp(22),0);
-        home.setOnClickListener(v->requestDefaultLauncher());
-        LinearLayout.LayoutParams homeLp=new LinearLayout.LayoutParams(-1,dp(60));
-        homeLp.topMargin=dp(9);
-        options.addView(home,homeLp);
-
-        TextView refresh=button("↻   Actualizar lista de aplicaciones");
-        refresh.setGravity(Gravity.CENTER_VERTICAL);
-        refresh.setPadding(dp(22),0,dp(22),0);
-        refresh.setOnClickListener(v->{loadApps();selectedCategory="Todo";buildHome();});
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(60));
-        rp.topMargin=dp(9);
-        options.addView(refresh,rp);
-
-        TextView wallpaperTitle=text("FONDOS DE PANTALLA",12,BLUE,true);
-        wallpaperTitle.setLetterSpacing(.16f);
-        LinearLayout.LayoutParams wt=new LinearLayout.LayoutParams(-1,dp(34));
-        wt.topMargin=dp(18);
-        options.addView(wallpaperTitle,wt);
+        addSettingsSectionTitle(content,"APARIENCIA");
+        TextView wallpaperDescription=text("Elige el ambiente que más te guste.",13,MUTED,false);
+        content.addView(wallpaperDescription,new LinearLayout.LayoutParams(-1,dp(28)));
 
         HorizontalScrollView wallpaperScroll=new HorizontalScrollView(this);
         wallpaperScroll.setHorizontalScrollBarEnabled(false);
         wallpaperScroll.setClipToPadding(false);
+        wallpaperScroll.setFillViewport(false);
         LinearLayout wallpapers=new LinearLayout(this);
         wallpapers.setOrientation(LinearLayout.HORIZONTAL);
-        String[] wallpaperNames={"AZUL","ÁRTICO","VIOLETA","AMOLED"};
+
+        String[] wallpaperNames={"Azul noche","Ártico","Violeta","Negro puro"};
         int[] wallpaperColors={0xFF182B50,0xFF124653,0xFF39205B,0xFF080B12};
         int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
+
         for(int i=0;i<wallpaperNames.length;i++){
             final int wallpaperIndex=i;
-            TextView choice=button((selectedWallpaper==i?"✓  ":"")+wallpaperNames[i]);
-            choice.setTextSize(11);
-            choice.setBackground(shape(wallpaperColors[i],selectedWallpaper==i?BLUE:0,14));
+            final boolean selected=selectedWallpaper==i;
+
+            LinearLayout choice=new LinearLayout(this);
+            choice.setOrientation(LinearLayout.HORIZONTAL);
+            choice.setGravity(Gravity.CENTER_VERTICAL);
+            choice.setPadding(dp(13),0,dp(13),0);
+            choice.setBackground(shape(selected?0xFF233B61:0xAA141D2E,
+                    selected?BLUE:0x263B5F91,16));
+            choice.setFocusable(true);
+            choice.setFocusableInTouchMode(true);
+            choice.setOnFocusChangeListener((v,focused)->{
+                v.setBackground(shape(focused?PANEL_FOCUS:(selected?0xFF233B61:0xAA141D2E),
+                        focused||selected?BLUE:0x263B5F91,16));
+                v.setScaleX(focused?1.035f:1f);
+                v.setScaleY(focused?1.035f:1f);
+            });
+
+            View swatch=new View(this);
+            swatch.setBackground(shape(wallpaperColors[i],0,30));
+            choice.addView(swatch,new LinearLayout.LayoutParams(dp(25),dp(25)));
+
+            TextView name=text(wallpaperNames[i],12,TEXT,true);
+            LinearLayout.LayoutParams nameLp=new LinearLayout.LayoutParams(0,-1,1);
+            nameLp.leftMargin=dp(10);
+            choice.addView(name,nameLp);
+
+            if(selected){
+                TextView check=text("✓",15,0xFF7FC5FF,true);
+                choice.addView(check,new LinearLayout.LayoutParams(dp(20),-1));
+            }
+
+            choice.setContentDescription(wallpaperNames[i]+(selected?", seleccionado":", seleccionar"));
             choice.setOnClickListener(v->{
                 getSharedPreferences(PREFS,0).edit().putInt("wallpaper",wallpaperIndex).apply();
                 buildSettings();
                 Toast.makeText(this,"Fondo aplicado",Toast.LENGTH_SHORT).show();
             });
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(142),dp(52));
-            cp.rightMargin=dp(10);
-            wallpapers.addView(choice,cp);
+
+            LinearLayout.LayoutParams choiceLp=new LinearLayout.LayoutParams(dp(174),dp(62));
+            choiceLp.rightMargin=dp(10);
+            wallpapers.addView(choice,choiceLp);
         }
+
         wallpaperScroll.addView(wallpapers,new HorizontalScrollView.LayoutParams(-2,-2));
-        options.addView(wallpaperScroll,new LinearLayout.LayoutParams(-1,dp(56)));
+        LinearLayout.LayoutParams wallpaperScrollLp=new LinearLayout.LayoutParams(-1,dp(72));
+        content.addView(wallpaperScroll,wallpaperScrollLp);
 
-        TextView updates=button("⇧   Buscar actualizaciones de Motoroll TV");
-        updates.setGravity(Gravity.CENTER_VERTICAL);
-        updates.setPadding(dp(22),0,dp(22),0);
-        updates.setOnClickListener(v->checkForTvUpdates());
-        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));
-        up.topMargin=dp(16);
-        options.addView(updates,up);
+        addSettingsSectionTitle(content,"ACTUALIZACIONES");
+        addSettingsAction(content,"⇧","Buscar actualizaciones",
+                "Versión instalada: "+BuildConfig.VERSION_NAME,()->checkForTvUpdates());
 
-        TextView channel=text("Canal independiente de GitHub  ·  Motoroll TV  ·  com.motoroll.tv",12,BLUE,false);
-        channel.setMaxLines(2);
-        LinearLayout.LayoutParams channelLp=new LinearLayout.LayoutParams(-1,dp(42));
-        channelLp.topMargin=dp(10);
-        content.addView(channel,channelLp);
+        TextView note=text("Tus fondos y preferencias se conservan al actualizar.",12,MUTED,false);
+        LinearLayout.LayoutParams noteLp=new LinearLayout.LayoutParams(-1,dp(30));
+        noteLp.topMargin=dp(2);
+        content.addView(note,noteLp);
 
-        TextView note=text("Las actualizaciones de Motoroll TV se descargan desde su propio canal de GitHub. Motoroll Home del teléfono conserva su canal y sus versiones independientes.",13,MUTED,false);
-        note.setMaxLines(3);
-        content.addView(note,new LinearLayout.LayoutParams(-1,dp(58)));
-
-        TextView back=button("←   VOLVER A MIS APLICACIONES");
+        TextView back=button("←   VOLVER AL INICIO");
+        back.setTextSize(13);
         back.setBackground(shape(PANEL_FOCUS,BLUE,16));
         back.setOnClickListener(v->buildHome());
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(390),dp(54));
-        bp.topMargin=dp(16);
-        content.addView(back,bp);
-        focusWhenReady(home);
+        LinearLayout.LayoutParams backLp=new LinearLayout.LayoutParams(dp(285),dp(52));
+        backLp.topMargin=dp(17);
+        content.addView(back,backLp);
+
+        focusWhenReady(deviceSettings);
     }
+
     private void openAndroidTvSettings(){
         String[] actions={Settings.ACTION_SETTINGS,Settings.ACTION_WIRELESS_SETTINGS,
                 Settings.ACTION_APPLICATION_SETTINGS,Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS};
@@ -683,7 +749,7 @@ public class TvActivity extends Activity {
             Intent tvSettings=getPackageManager().getLaunchIntentForPackage("com.android.tv.settings");
             if(tvSettings!=null){startActivity(tvSettings);return;}
         }catch(Exception ignored){}
-        Toast.makeText(this,"Este dispositivo no permite abrir la configuración de Android TV.",Toast.LENGTH_LONG).show();
+        Toast.makeText(this,"No se pudieron abrir los ajustes del dispositivo.",Toast.LENGTH_LONG).show();
     }
 
     private void requestDefaultLauncher(){
@@ -692,7 +758,7 @@ public class TvActivity extends Activity {
                 RoleManager rm=getSystemService(RoleManager.class);
                 if(rm!=null && rm.isRoleAvailable(RoleManager.ROLE_HOME)){
                     if(rm.isRoleHeld(RoleManager.ROLE_HOME)){
-                        Toast.makeText(this,"Motoroll TV ya es tu launcher predeterminado",Toast.LENGTH_LONG).show();
+                        Toast.makeText(this,"MOTOROLL ya es tu pantalla de inicio",Toast.LENGTH_LONG).show();
                     }else startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME),410);
                     return;
                 }
@@ -708,7 +774,7 @@ public class TvActivity extends Activity {
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
         super.onActivityResult(requestCode,resultCode,data);
         if(requestCode==410){
-            String message=resultCode==RESULT_OK?"Motoroll TV quedó como launcher predeterminado":"No se cambió el launcher predeterminado";
+            String message=resultCode==RESULT_OK?"MOTOROLL quedó como pantalla de inicio":"No se cambió la pantalla de inicio";
             Toast.makeText(this,message,Toast.LENGTH_LONG).show();
             buildHome();
         }
@@ -717,7 +783,7 @@ public class TvActivity extends Activity {
 
     /** Checks only the Motoroll TV release channel; mobile Motoroll Home releases are ignored. */
     private void checkForTvUpdates(){
-        Toast.makeText(this,"Conectando con GitHub…",Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,"Buscando actualizaciones…",Toast.LENGTH_SHORT).show();
         new Thread(()->{
             HttpURLConnection connection=null;
             try{
@@ -742,9 +808,9 @@ public class TvActivity extends Activity {
                     String version=tag.substring("motoroll-tv-v".length());
                     if(newest==null||compareVersions(version,newestVersion)>0){newest=release;newestVersion=version;}
                 }
-                if(newest==null)throw new Exception("Todavía no hay versiones publicadas de Motoroll TV.");
+                if(newest==null)throw new Exception("No se encontró ninguna versión publicada.");
                 if(compareVersions(newestVersion,BuildConfig.VERSION_NAME)<=0){
-                    runOnUiThread(()->Toast.makeText(this,"Motoroll TV ya está actualizado.",Toast.LENGTH_LONG).show());
+                    runOnUiThread(()->Toast.makeText(this,"Ya tienes la última versión.",Toast.LENGTH_LONG).show());
                     return;
                 }
                 JSONArray assets=newest.optJSONArray("assets");
@@ -753,7 +819,7 @@ public class TvActivity extends Activity {
                     JSONObject asset=assets.getJSONObject(i);
                     if("MotorollTV.apk".equals(asset.optString("name"))){apkUrl=asset.optString("browser_download_url");break;}
                 }
-                if(apkUrl==null||apkUrl.isEmpty())throw new Exception("La versión de GitHub no contiene MotorollTV.apk.");
+                if(apkUrl==null||apkUrl.isEmpty())throw new Exception("No se encontró el instalador de la actualización.");
                 final String downloadUrl=apkUrl;
                 final String versionToDownload=newestVersion;
                 runOnUiThread(()->downloadTvUpdate(downloadUrl,versionToDownload));
@@ -781,12 +847,12 @@ public class TvActivity extends Activity {
             DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
             if(manager==null)throw new Exception("Descargas no está disponible en este dispositivo.");
             DownloadManager.Request request=new DownloadManager.Request(Uri.parse(url));
-            request.setTitle("Motoroll TV "+version);
-            request.setDescription("Descargando actualización desde GitHub");
+            request.setTitle("MOTOROLL "+version);
+            request.setDescription("Descargando actualización");
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setDestinationInExternalFilesDir(this,Environment.DIRECTORY_DOWNLOADS,"MotorollTV-update.apk");
             updateDownloadId=manager.enqueue(request);
-            Toast.makeText(this,"Descargando Motoroll TV "+version+"…",Toast.LENGTH_LONG).show();
+            Toast.makeText(this,"Descargando versión "+version+"…",Toast.LENGTH_LONG).show();
         }catch(Exception error){
             Toast.makeText(this,"No se pudo iniciar la descarga: "+error.getMessage(),Toast.LENGTH_LONG).show();
         }
