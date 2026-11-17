@@ -560,28 +560,65 @@ public class TvActivity extends Activity {
 
     private void buildSettings(){
         showingSettings=true;
-        prepareRoot(); addBrandHeader("MENÚ MOTOROLL TV");
+        prepareRoot();
+        addBrandHeader("MENÚ MOTOROLL TV");
+
+        // Keep the settings content inside its own vertical scroll area so every
+        // option remains reachable on short 720p/1080p TV screens.
+        ScrollView settingsScroll=new ScrollView(this);
+        settingsScroll.setFillViewport(true);
+        settingsScroll.setVerticalScrollBarEnabled(true);
+        settingsScroll.setClipToPadding(false);
+        settingsScroll.setFocusable(false);
+        settingsScroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(0,dp(8),0,dp(30));
+        settingsScroll.addView(content,new ScrollView.LayoutParams(-1,-2));
+        root.addView(settingsScroll,new LinearLayout.LayoutParams(-1,0,1));
+
         TextView title=text("Ajustes del launcher",29,TEXT,true);
-        root.addView(title,new LinearLayout.LayoutParams(-1,dp(66)));
-        TextView description=text("Configura Motoroll TV como pantalla de inicio y administra su comportamiento.",16,MUTED,false);
-        root.addView(description,new LinearLayout.LayoutParams(dp(850),dp(58)));
-        LinearLayout options=new LinearLayout(this); options.setOrientation(LinearLayout.VERTICAL);
+        content.addView(title,new LinearLayout.LayoutParams(-1,dp(58)));
+        TextView description=text("Configura Motoroll TV como pantalla de inicio y administra su comportamiento.",15,MUTED,false);
+        description.setMaxLines(2);
+        content.addView(description,new LinearLayout.LayoutParams(-1,dp(52)));
+
+        LinearLayout options=new LinearLayout(this);
+        options.setOrientation(LinearLayout.VERTICAL);
+        content.addView(options,new LinearLayout.LayoutParams(-1,-2));
+
         TextView androidSettings=button("⚙   Abrir configuración de Android TV");
-        androidSettings.setGravity(Gravity.CENTER_VERTICAL); androidSettings.setPadding(dp(22),0,dp(22),0);
+        androidSettings.setGravity(Gravity.CENTER_VERTICAL);
+        androidSettings.setPadding(dp(22),0,dp(22),0);
         androidSettings.setOnClickListener(v->openAndroidTvSettings());
-        options.addView(androidSettings,new LinearLayout.LayoutParams(dp(760),dp(64)));
+        options.addView(androidSettings,new LinearLayout.LayoutParams(-1,dp(60)));
+
         TextView home=button("⌂   Establecer Motoroll TV como launcher predeterminado");
-        home.setGravity(Gravity.CENTER_VERTICAL); home.setPadding(dp(22),0,dp(22),0);
+        home.setGravity(Gravity.CENTER_VERTICAL);
+        home.setPadding(dp(22),0,dp(22),0);
         home.setOnClickListener(v->requestDefaultLauncher());
-        options.addView(home,new LinearLayout.LayoutParams(dp(760),dp(64)));
+        LinearLayout.LayoutParams homeLp=new LinearLayout.LayoutParams(-1,dp(60));
+        homeLp.topMargin=dp(9);
+        options.addView(home,homeLp);
+
         TextView refresh=button("↻   Actualizar lista de aplicaciones");
-        refresh.setGravity(Gravity.CENTER_VERTICAL); refresh.setPadding(dp(22),0,dp(22),0);
+        refresh.setGravity(Gravity.CENTER_VERTICAL);
+        refresh.setPadding(dp(22),0,dp(22),0);
         refresh.setOnClickListener(v->{loadApps();selectedCategory="Todo";buildHome();});
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(760),dp(64));rp.topMargin=dp(14);options.addView(refresh,rp);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(60));
+        rp.topMargin=dp(9);
+        options.addView(refresh,rp);
+
         TextView wallpaperTitle=text("FONDOS DE PANTALLA",12,BLUE,true);
         wallpaperTitle.setLetterSpacing(.16f);
-        LinearLayout.LayoutParams wt=new LinearLayout.LayoutParams(-1,dp(34)); wt.topMargin=dp(18);
+        LinearLayout.LayoutParams wt=new LinearLayout.LayoutParams(-1,dp(34));
+        wt.topMargin=dp(18);
         options.addView(wallpaperTitle,wt);
+
+        HorizontalScrollView wallpaperScroll=new HorizontalScrollView(this);
+        wallpaperScroll.setHorizontalScrollBarEnabled(false);
+        wallpaperScroll.setClipToPadding(false);
         LinearLayout wallpapers=new LinearLayout(this);
         wallpapers.setOrientation(LinearLayout.HORIZONTAL);
         String[] wallpaperNames={"AZUL","ÁRTICO","VIOLETA","AMOLED"};
@@ -597,24 +634,37 @@ public class TvActivity extends Activity {
                 buildSettings();
                 Toast.makeText(this,"Fondo aplicado",Toast.LENGTH_SHORT).show();
             });
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(150),dp(54));
-            cp.rightMargin=dp(10); wallpapers.addView(choice,cp);
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(142),dp(52));
+            cp.rightMargin=dp(10);
+            wallpapers.addView(choice,cp);
         }
-        options.addView(wallpapers);
+        wallpaperScroll.addView(wallpapers,new HorizontalScrollView.LayoutParams(-2,-2));
+        options.addView(wallpaperScroll,new LinearLayout.LayoutParams(-1,dp(56)));
 
         TextView updates=button("⇧   Buscar actualizaciones de Motoroll TV");
-        updates.setGravity(Gravity.CENTER_VERTICAL); updates.setPadding(dp(22),0,dp(22),0);
+        updates.setGravity(Gravity.CENTER_VERTICAL);
+        updates.setPadding(dp(22),0,dp(22),0);
         updates.setOnClickListener(v->checkForTvUpdates());
-        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(dp(760),dp(64));up.topMargin=dp(14);options.addView(updates,up);
-        TextView channel=text("Canal independiente de GitHub  ·  Motoroll TV  ·  com.motoroll.tv",13,BLUE,false);
-        root.addView(options);
-        root.addView(channel,new LinearLayout.LayoutParams(-1,dp(38)));
-        TextView note=text("Las actualizaciones de Motoroll TV se descargan desde su propio canal de GitHub. Motoroll Home del teléfono conserva su canal y sus versiones independientes.",14,MUTED,false);
-        root.addView(note,new LinearLayout.LayoutParams(dp(820),dp(64)));
+        LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));
+        up.topMargin=dp(16);
+        options.addView(updates,up);
+
+        TextView channel=text("Canal independiente de GitHub  ·  Motoroll TV  ·  com.motoroll.tv",12,BLUE,false);
+        channel.setMaxLines(2);
+        LinearLayout.LayoutParams channelLp=new LinearLayout.LayoutParams(-1,dp(42));
+        channelLp.topMargin=dp(10);
+        content.addView(channel,channelLp);
+
+        TextView note=text("Las actualizaciones de Motoroll TV se descargan desde su propio canal de GitHub. Motoroll Home del teléfono conserva su canal y sus versiones independientes.",13,MUTED,false);
+        note.setMaxLines(3);
+        content.addView(note,new LinearLayout.LayoutParams(-1,dp(58)));
+
         TextView back=button("←   VOLVER A MIS APLICACIONES");
         back.setBackground(shape(PANEL_FOCUS,BLUE,16));
         back.setOnClickListener(v->buildHome());
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(390),dp(56));bp.topMargin=dp(22);root.addView(back,bp);
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(390),dp(54));
+        bp.topMargin=dp(16);
+        content.addView(back,bp);
         focusWhenReady(home);
     }
     private void openAndroidTvSettings(){
