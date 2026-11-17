@@ -177,7 +177,7 @@ public class TvActivity extends Activity {
     private void addBrandHeader(String rightLabel){
         LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout brandGroup=new LinearLayout(this); brandGroup.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView logo=new ImageView(this); logo.setImageResource(R.drawable.ic_motoroll);
+        ImageView logo=new ImageView(this); logo.setImageResource(R.drawable.ic_motoroll_tv);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(46),dp(46)));
         LinearLayout wordmark=new LinearLayout(this); wordmark.setOrientation(LinearLayout.VERTICAL);
@@ -241,7 +241,7 @@ public class TvActivity extends Activity {
         LinearLayout brandGroup=new LinearLayout(this);
         brandGroup.setGravity(Gravity.CENTER_VERTICAL);
         ImageView logo=new ImageView(this);
-        logo.setImageResource(R.drawable.ic_motoroll);
+        logo.setImageResource(R.drawable.ic_motoroll_tv);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(56),dp(56)));
         LinearLayout brandText=new LinearLayout(this);
@@ -306,15 +306,19 @@ public class TvActivity extends Activity {
         GridLayout appGrid=new GridLayout(this);
         appGrid.setUseDefaultMargins(false);
         appGrid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
-        appGrid.setColumnCount(6);
-        appGrid.setRowCount((int)Math.ceil(items.size()/6.0));
+        int screenDp=(int)(getResources().getDisplayMetrics().widthPixels/getResources().getDisplayMetrics().density);
+        int availableDp=Math.max(320,screenDp-108);
+        int columns=Math.max(2,Math.min(6,availableDp/150));
+        appGrid.setColumnCount(columns);
+        appGrid.setRowCount((int)Math.ceil(items.size()/(double)columns));
         parent.addView(appGrid,new LinearLayout.LayoutParams(-1,-2));
 
-        for(ResolveInfo app:items)addFlauncherAppCard(app,appGrid);
+        int cardWidth=Math.max(116,availableDp/columns-10);
+        for(ResolveInfo app:items)addFlauncherAppCard(app,appGrid,cardWidth);
         return appGrid.getChildCount()>0?appGrid.getChildAt(0):null;
     }
 
-    private void addFlauncherAppCard(ResolveInfo app,GridLayout target){
+    private void addFlauncherAppCard(ResolveInfo app,GridLayout target,int cardWidth){
         LinearLayout card=new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
@@ -331,8 +335,11 @@ public class TvActivity extends Activity {
         TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),12,TEXT,true);
         name.setGravity(Gravity.CENTER);
         name.setMaxLines(2);
+        name.setMinLines(2);
+        name.setIncludeFontPadding(false);
+        name.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);
         name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams nameLp=new LinearLayout.LayoutParams(-1,dp(34));
+        LinearLayout.LayoutParams nameLp=new LinearLayout.LayoutParams(-1,dp(38));
         nameLp.topMargin=dp(5);
         card.addView(name,nameLp);
 
@@ -341,8 +348,8 @@ public class TvActivity extends Activity {
         card.setOnLongClickListener(v->{showAppActions(app,card);return true;});
 
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=dp(174);p.height=dp(124);
-        p.setMargins(0,dp(4),dp(10),dp(5));
+        p.width=dp(cardWidth);p.height=dp(132);
+        p.setMargins(0,dp(4),dp(8),dp(5));
         target.addView(card,p);
     }
 
@@ -467,7 +474,7 @@ public class TvActivity extends Activity {
         if(app==null||app.activityInfo==null)return;
         final String packageName=app.activityInfo.packageName;
         final String appName=String.valueOf(app.loadLabel(getPackageManager()));
-        final String[] actions={"Desinstalar / Borrar aplicación","Información de la aplicación"};
+        final String[] actions={"Borrar caché (abrir ajustes)","Desinstalar aplicación","Información de la aplicación"};
         AlertDialog dialog=new AlertDialog.Builder(this)
                 .setTitle(appName)
                 .setItems(actions,(d,which)->{
@@ -476,12 +483,14 @@ public class TvActivity extends Activity {
                     d.dismiss();
                     if(appCard!=null){
                         appCard.postDelayed(()->{
-                            if(which==0)uninstallApp(packageName);
-                            else if(which==1)openAppInfo(packageName);
+                            if(which==0)openAppCacheSettings(packageName);
+                            else if(which==1)uninstallApp(packageName);
+                            else if(which==2)openAppInfo(packageName);
                         },250);
                     }else{
-                        if(which==0)uninstallApp(packageName);
-                        else if(which==1)openAppInfo(packageName);
+                        if(which==0)openAppCacheSettings(packageName);
+                        else if(which==1)uninstallApp(packageName);
+                        else if(which==2)openAppInfo(packageName);
                     }
                 })
                 .setOnDismissListener(d->{
@@ -525,6 +534,13 @@ public class TvActivity extends Activity {
             }
         }
     }
+    private void openAppCacheSettings(String packageName){
+        // Android does not let ordinary launchers silently clear another app's cache.
+        // Open that app's system page so the user can enter Storage and clear cache.
+        openAppInfo(packageName);
+        Toast.makeText(this,"En Información de la aplicación, entra en Almacenamiento y pulsa Borrar caché.",Toast.LENGTH_LONG).show();
+    }
+
     private void openAppInfo(String packageName){
         try{
             Intent info=new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+packageName));
@@ -562,6 +578,30 @@ public class TvActivity extends Activity {
         refresh.setGravity(Gravity.CENTER_VERTICAL); refresh.setPadding(dp(22),0,dp(22),0);
         refresh.setOnClickListener(v->{loadApps();selectedCategory="Todo";buildHome();});
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(760),dp(64));rp.topMargin=dp(14);options.addView(refresh,rp);
+        TextView wallpaperTitle=text("FONDOS DE PANTALLA",12,BLUE,true);
+        wallpaperTitle.setLetterSpacing(.16f);
+        LinearLayout.LayoutParams wt=new LinearLayout.LayoutParams(-1,dp(34)); wt.topMargin=dp(18);
+        options.addView(wallpaperTitle,wt);
+        LinearLayout wallpapers=new LinearLayout(this);
+        wallpapers.setOrientation(LinearLayout.HORIZONTAL);
+        String[] wallpaperNames={"AZUL","ÁRTICO","VIOLETA","AMOLED"};
+        int[] wallpaperColors={0xFF182B50,0xFF124653,0xFF39205B,0xFF080B12};
+        int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
+        for(int i=0;i<wallpaperNames.length;i++){
+            final int wallpaperIndex=i;
+            TextView choice=button((selectedWallpaper==i?"✓  ":"")+wallpaperNames[i]);
+            choice.setTextSize(11);
+            choice.setBackground(shape(wallpaperColors[i],selectedWallpaper==i?BLUE:0,14));
+            choice.setOnClickListener(v->{
+                getSharedPreferences(PREFS,0).edit().putInt("wallpaper",wallpaperIndex).apply();
+                buildSettings();
+                Toast.makeText(this,"Fondo aplicado",Toast.LENGTH_SHORT).show();
+            });
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(150),dp(54));
+            cp.rightMargin=dp(10); wallpapers.addView(choice,cp);
+        }
+        options.addView(wallpapers);
+
         TextView updates=button("⇧   Buscar actualizaciones de Motoroll TV");
         updates.setGravity(Gravity.CENTER_VERTICAL); updates.setPadding(dp(22),0,dp(22),0);
         updates.setOnClickListener(v->checkForTvUpdates());
@@ -731,15 +771,32 @@ public class TvActivity extends Activity {
     private final class TvAmbientBackground extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private RadialGradient blueGlow,purpleGlow;
-        TvAmbientBackground(android.content.Context context){super(context);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
+        private final int wallpaper;
+        TvAmbientBackground(android.content.Context context){
+            super(context);setLayerType(View.LAYER_TYPE_HARDWARE,null);
+            wallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
+        }
         @Override protected void onSizeChanged(int w,int h,int oldW,int oldH){
             super.onSizeChanged(w,h,oldW,oldH);
             float radius=Math.max(w,h)*0.66f;
-            blueGlow=new RadialGradient(w*0.91f,h*0.12f,radius,
-                    new int[]{0x59365FAF,0x20192349,0x00070A12},
+            int[] blueColors;
+            int[] purpleColors;
+            if(wallpaper==1){
+                blueColors=new int[]{0x6642C8D8,0x20203F49,0x00070A12};
+                purpleColors=new int[]{0x443B8FAD,0x18203642,0x00070A12};
+            }else if(wallpaper==2){
+                blueColors=new int[]{0x665D55D8,0x20251B49,0x00070A12};
+                purpleColors=new int[]{0x665F35B8,0x20241642,0x00070A12};
+            }else if(wallpaper==3){
+                blueColors=new int[]{0x180D1628,0x080D1422,0x00070A12};
+                purpleColors=new int[]{0x140D1020,0x080D1020,0x00070A12};
+            }else{
+                blueColors=new int[]{0x59365FAF,0x20192349,0x00070A12};
+                purpleColors=new int[]{0x4D693AAB,0x1A24163F,0x00070A12};
+            }
+            blueGlow=new RadialGradient(w*0.91f,h*0.12f,radius,blueColors,
                     new float[]{0f,0.56f,1f},Shader.TileMode.CLAMP);
-            purpleGlow=new RadialGradient(w*0.08f,h*0.88f,radius*0.88f,
-                    new int[]{0x4D693AAB,0x1A24163F,0x00070A12},
+            purpleGlow=new RadialGradient(w*0.08f,h*0.88f,radius*0.88f,purpleColors,
                     new float[]{0f,0.58f,1f},Shader.TileMode.CLAMP);
         }
         @Override protected void onDraw(Canvas canvas){
@@ -750,11 +807,11 @@ public class TvActivity extends Activity {
             // Motoroll signature: luminous diagonal ribbons and a quiet M watermark.
             paint.setShader(null); paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(dp(3)); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
-            paint.setColor(0x123F9EFF);
+            paint.setColor(wallpaper==1?0x164DD8E8:(wallpaper==2?0x1B9A6BFF:(wallpaper==3?0x084F82B8:0x123F9EFF)));
             float w=getWidth(), h=getHeight();
             canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
             canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
-            paint.setStrokeWidth(dp(7)); paint.setColor(0x0D65B8FF);
+            paint.setStrokeWidth(dp(7)); paint.setColor(wallpaper==1?0x0D54D6E8:(wallpaper==2?0x126D61FF:(wallpaper==3?0x065B8DFF:0x0D65B8FF)));
             android.graphics.Path mark=new android.graphics.Path();
             mark.moveTo(w*0.73f,h*0.39f); mark.lineTo(w*0.81f,h*0.57f);
             mark.lineTo(w*0.89f,h*0.43f); mark.lineTo(w*0.97f,h*0.57f);
