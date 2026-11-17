@@ -309,28 +309,25 @@ public class TvActivity extends Activity {
         TextView tip=text("OK para abrir  ·  Mantén OK para opciones  ·  MENÚ para ajustes",11,0xFF7F91B1,false);
         root.addView(tip,new LinearLayout.LayoutParams(-1,dp(24)));
 
-        if("Todo".equals(selectedCategory)){
-            addAppSection(sections,"Todas las aplicaciones","Todo");
-            addAppSection(sections,"Juegos","Juegos");
-            addAppSection(sections,"Vídeo y streaming","Vídeo");
-            addAppSection(sections,"Música","Música");
-            addAppSection(sections,"Otras aplicaciones","Otros");
-        }else{
-            addAppSection(sections,selectedCategory,selectedCategory);
-        }
-        if(sections.getChildCount()>0 && grid!=null && grid.getChildCount()>0)focusWhenReady(grid.getChildAt(0));
+        // The home screen stays intentionally sparse: one short featured rail.
+        addAppSection(sections,"Aplicaciones destacadas","Todo");
+        if(grid!=null && grid.getChildCount()>0)focusWhenReady(grid.getChildAt(0));
         else focusWhenReady(menu);
     }
 
     private void addAppSection(LinearLayout parent,String heading,String category){
         List<ResolveInfo> items=new ArrayList<>();
         for(ResolveInfo app:allApps)if(matchesCategory(app,category))items.add(app);
-        if(items.isEmpty() && !"Todo".equals(category))return;
+        if(items.isEmpty()){
+            TextView empty=text("No hay aplicaciones instaladas en esta sección.",13,MUTED,false);
+            parent.addView(empty,new LinearLayout.LayoutParams(-1,dp(44)));
+            return;
+        }
 
         TextView label=text(heading.toUpperCase(),11,MUTED,true);
         label.setLetterSpacing(.14f);
         LinearLayout.LayoutParams labelLp=new LinearLayout.LayoutParams(-1,dp(25));
-        labelLp.topMargin=dp(5);
+        labelLp.topMargin=dp(12);
         parent.addView(label,labelLp);
 
         HorizontalScrollView rail=new HorizontalScrollView(this);
@@ -340,15 +337,70 @@ public class TvActivity extends Activity {
         rail.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         grid=new GridLayout(this);
         grid.setRowCount(1);
-        grid.setColumnCount(Math.max(1,items.size()));
+        grid.setColumnCount(Math.min(5,items.size())+1);
         grid.setUseDefaultMargins(false);
         rail.addView(grid,new HorizontalScrollView.LayoutParams(-2,-2));
         parent.addView(rail,new LinearLayout.LayoutParams(-1,dp(164)));
-        for(ResolveInfo app:items)addAppCard(app,dp(142));
-        if(items.isEmpty()){
-            TextView empty=text("No hay aplicaciones instaladas en esta sección.",13,MUTED,false);
-            parent.addView(empty,new LinearLayout.LayoutParams(-1,dp(44)));
-        }
+
+        int shown=Math.min(5,items.size());
+        for(int i=0;i<shown;i++)addAppCard(items.get(i),dp(142));
+        addViewAllCard(category,dp(142));
+    }
+
+    private void addViewAllCard(String category,int width){
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(10),dp(10),dp(10),dp(8));
+        card.setBackground(shape(0xAA17243A,BLUE,18));
+        makeFocusable(card);
+        card.setClickable(true);
+        TextView symbol=text("＋",34,BLUE,true);
+        symbol.setGravity(Gravity.CENTER);
+        card.addView(symbol,new LinearLayout.LayoutParams(-1,dp(64)));
+        TextView label=text("VER TODAS",11,TEXT,true);
+        label.setGravity(Gravity.CENTER);
+        card.addView(label,new LinearLayout.LayoutParams(-1,dp(38)));
+        card.setOnClickListener(v->buildCategoryCatalog(category));
+        GridLayout.LayoutParams p=new GridLayout.LayoutParams();
+        p.width=width;p.height=dp(142);
+        p.setMargins(0,dp(5),dp(12),dp(5));
+        grid.addView(card,p);
+    }
+
+    private void buildCategoryCatalog(String category){
+        showingSettings=false;
+        prepareRoot();
+        LinearLayout header=new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView back=button("←  INICIO");
+        back.setTextSize(13);
+        back.setBackground(shape(PANEL_FOCUS,BLUE,14));
+        back.setOnClickListener(v->buildHome());
+        header.addView(back,new LinearLayout.LayoutParams(dp(142),dp(46)));
+        TextView title=text("  "+("Todo".equals(category)?"Todas las aplicaciones":category),24,TEXT,true);
+        header.addView(title,new LinearLayout.LayoutParams(0,dp(50),1));
+        TextClock clock=new TextClock(this);
+        clock.setFormat12Hour("h:mm a");clock.setFormat24Hour("HH:mm");
+        clock.setTextColor(TEXT);clock.setTextSize(18);
+        header.addView(clock);
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(58)));
+
+        status=text("Cargando aplicaciones…",12,MUTED,false);
+        root.addView(status,new LinearLayout.LayoutParams(-1,dp(30)));
+        ScrollView scroll=new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setFocusable(false);
+        scroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        grid=new GridLayout(this);
+        grid.setUseDefaultMargins(false);
+        grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
+        scroll.addView(grid,new ScrollView.LayoutParams(-1,-2));
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        selectedCategory=category;
+        showFilteredApps();
+        if(grid.getChildCount()>0)focusWhenReady(grid.getChildAt(0));
+        else focusWhenReady(back);
     }
 
     private int categoryOf(ResolveInfo app){
