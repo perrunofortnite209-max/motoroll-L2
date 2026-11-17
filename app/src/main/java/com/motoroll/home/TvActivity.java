@@ -10,6 +10,8 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -25,6 +27,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
@@ -58,6 +61,16 @@ public class TvActivity extends Activity {
     private static final int TEXT=Color.rgb(246,248,255), MUTED=Color.rgb(151,164,190);
     private static final String PREFS="motoroll_tv", PREF_WELCOME="welcome_done";
     private static final String PREF_HOME_SETUP_REQUESTED="home_setup_requested";
+    private static final String PREF_FAVORITES="favorite_packages";
+    private static final String PREF_AMBIENT="ambient_mode_enabled";
+    private static final String PREF_NAV_SOUNDS="navigation_sounds";
+    private static final long AMBIENT_IDLE_MS=180000L;
+    private final Handler idleHandler=new Handler(Looper.getMainLooper());
+    private final Runnable ambientRunnable=this::showAmbientMode;
+    private boolean ambientShowing;
+    private FrameLayout screenFrame;
+    private FrameLayout ambientOverlay;
+    private View ambientReturnFocus;
     private boolean homeRecoveryPromptShown;
     private boolean homeRequestInFlight;
     private LinearLayout root;
@@ -106,12 +119,26 @@ public class TvActivity extends Activity {
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t;
     }
     private void focusStyle(View v,boolean focused){
-        v.setBackground(shape(focused?PANEL_FOCUS:PANEL,focused?BLUE:0,18));
-        v.setScaleX(focused?1.045f:1f); v.setScaleY(focused?1.045f:1f);
-        v.setElevation(focused?dp(8):0);
+        if(focused){
+            GradientDrawable glow=new GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    new int[]{0xFF1B355B,0xFF28214D});
+            glow.setCornerRadius(dp(18));
+            glow.setStroke(dp(3),0xFF65B7FF);
+            v.setBackground(glow);
+            v.animate().scaleX(1.055f).scaleY(1.055f).setDuration(130).start();
+            v.setElevation(dp(12));
+        }else{
+            v.setBackground(shape(PANEL,0,18));
+            v.animate().scaleX(1f).scaleY(1f).setDuration(130).start();
+            v.setElevation(0);
+        }
     }
     private void makeFocusable(View v){
-        v.setFocusable(true); v.setFocusableInTouchMode(true);
+        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        v.setSoundEffectsEnabled(getSharedPreferences(PREFS,0)
+                .getBoolean(PREF_NAV_SOUNDS,false));
         v.setOnFocusChangeListener((view,focused)->focusStyle(view,focused));
     }
     private void focusWhenReady(View v){
@@ -163,6 +190,7 @@ public class TvActivity extends Activity {
             try { unregisterReceiver(packageReceiver); } catch (Exception ignored) { }
             packageReceiverRegistered = false;
         }
+        idleHandler.removeCallbacks(ambientRunnable);
         super.onDestroy();
     }
     @Override public void onWindowFocusChanged(boolean hasFocus){
@@ -171,6 +199,108 @@ public class TvActivity extends Activity {
             if(pendingFocus!=null && pendingFocus.isAttachedToWindow()) pendingFocus.requestFocus();
         });
     }
+    @Override public boolean dispatchKeyEvent(KeyEvent event){
+        if(event.getAction()==KeyEvent.ACTION_DOWN){
+            if(ambientShowing){
+                hideAmbientMode();
+                return true;
+            }
+            scheduleAmbientMode();
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void scheduleAmbientMode(){
+        idleHandler.removeCallbacks(ambientRunnable);
+        if(ambientShowing || screenFrame==null || isFinishing())return;
+        if(!getSharedPreferences(PREFS,0).getBoolean(PREF_AMBIENT,true))return;
+        idleHandler.postDelayed(ambientRunnable,AMBIENT_IDLE_MS);
+    }
+
+    private void showAmbientMode(){
+        if(ambientShowing || screenFrame==null || isFinishing()
+                || !getSharedPreferences(PREFS,0).getBoolean(PREF_AMBIENT,true))return;
+        View current=getCurrentFocus();
+        if(current!=null && current.isAttachedToWindow())ambientReturnFocus=current;
+
+        FrameLayout overlay=new FrameLayout(this);
+        GradientDrawable backdrop=new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF080D18,0xFF111C34,0xFF170F29});
+        overlay.setBackground(backdrop);
+        overlay.setFocusable(false);
+        overlay.setClickable(false);
+
+        LinearLayout center=new LinearLayout(this);
+        center.setOrientation(LinearLayout.VERTICAL);
+        center.setGravity(Gravity.CENTER);
+        center.setPadding(dp(28),dp(24),dp(28),dp(24));
+
+        ImageView mark=new ImageView(this);
+        mark.setImageResource(R.drawable.ic_motoroll_tv);
+        mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        center.addView(mark,new LinearLayout.LayoutParams(dp(112),dp(112)));
+
+        TextView brand=text("MOTOROLL",27,TEXT,true);
+        brand.setGravity(Gravity.CENTER);
+        brand.setLetterSpacing(.25f);
+        LinearLayout.LayoutParams brandLp=new LinearLayout.LayoutParams(-2,dp(42));
+        brandLp.topMargin=dp(8);
+        center.addView(brand,brandLp);
+
+        TextView tagline=text("BEYOND THE SCREEN",11,BLUE,true);
+        tagline.setGravity(Gravity.CENTER);
+        tagline.setLetterSpacing(.24f);
+        LinearLayout.LayoutParams tagLp=new LinearLayout.LayoutParams(-2,dp(28));
+        tagLp.topMargin=dp(2);
+        center.addView(tagline,tagLp);
+
+        TextClock clock=new TextClock(this);
+        clock.setFormat12Hour("h:mm");
+        clock.setFormat24Hour("HH:mm");
+        clock.setTextColor(TEXT);
+        clock.setTextSize(54);
+        clock.setGravity(Gravity.CENTER);
+        clock.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));
+        LinearLayout.LayoutParams clockLp=new LinearLayout.LayoutParams(-2,dp(82));
+        clockLp.topMargin=dp(18);
+        center.addView(clock,clockLp);
+
+        TextView hint=text("PULSA CUALQUIER TECLA PARA VOLVER",10,MUTED,true);
+        hint.setGravity(Gravity.CENTER);
+        hint.setLetterSpacing(.12f);
+        LinearLayout.LayoutParams hintLp=new LinearLayout.LayoutParams(-2,dp(28));
+        hintLp.topMargin=dp(14);
+        center.addView(hint,hintLp);
+
+        FrameLayout.LayoutParams centerLp=new FrameLayout.LayoutParams(-2,-2,Gravity.CENTER);
+        overlay.addView(center,centerLp);
+        screenFrame.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+        overlay.setAlpha(0f);
+        overlay.animate().alpha(1f).setDuration(650).start();
+        ambientOverlay=overlay;
+        ambientShowing=true;
+    }
+
+    private void hideAmbientMode(){
+        if(ambientOverlay!=null){
+            FrameLayout old=ambientOverlay;
+            ambientOverlay=null;
+            old.animate().alpha(0f).setDuration(160).withEndAction(()->{
+                if(old.getParent() instanceof ViewGroup)((ViewGroup)old.getParent()).removeView(old);
+            }).start();
+        }
+        ambientShowing=false;
+        if(ambientReturnFocus!=null && ambientReturnFocus.isAttachedToWindow()){
+            ambientReturnFocus.post(()->{
+                if(ambientReturnFocus!=null && ambientReturnFocus.isAttachedToWindow())
+                    ambientReturnFocus.requestFocus();
+            });
+        }
+        ambientReturnFocus=null;
+        scheduleAmbientMode();
+    }
+
     private void prepareRoot(){
         FrameLayout screen=new FrameLayout(this);
         screen.addView(new TvAmbientBackground(this),new FrameLayout.LayoutParams(-1,-1));
@@ -178,7 +308,9 @@ public class TvActivity extends Activity {
         root.setPadding(dp(54),dp(28),dp(54),dp(22)); root.setBackgroundColor(Color.TRANSPARENT);
         root.setFocusable(false);
         screen.addView(root,new FrameLayout.LayoutParams(-1,-1));
+        screenFrame=screen;
         setContentView(screen);
+        scheduleAmbientMode();
     }
     private TextView button(String caption){
         TextView b=text(caption,16,TEXT,true); b.setGravity(Gravity.CENTER);
@@ -217,11 +349,11 @@ public class TvActivity extends Activity {
     private void buildWelcome(){
         prepareRoot(); addBrandHeader("BIENVENIDO");
         View spacer=new View(this); root.addView(spacer,new LinearLayout.LayoutParams(1,0,1));
-        TextView eyebrow=text("UN INICIO A TU MEDIDA",13,BLUE,true); eyebrow.setLetterSpacing(.14f);
+        TextView eyebrow=text("BEYOND THE SCREEN",13,BLUE,true); eyebrow.setLetterSpacing(.20f);
         root.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(30)));
-        TextView title=text("Todo tu entretenimiento.\nA tu manera.",36,TEXT,true);
+        TextView title=text("Tu mundo.\nA tu manera.",38,TEXT,true);
         title.setLineSpacing(dp(5),1f); root.addView(title,new LinearLayout.LayoutParams(dp(850),dp(112)));
-        TextView desc=text("Tus aplicaciones favoritas, ordenadas y listas para disfrutar.",18,MUTED,false);
+        TextView desc=text("Una experiencia más tuya. Todo empieza aquí.",18,MUTED,false);
         root.addView(desc,new LinearLayout.LayoutParams(dp(760),dp(58)));
         TextView start=button("EMPEZAR  〉");
         start.setTextSize(17); start.setBackground(shape(BLUE,BLUE,16));
@@ -253,59 +385,294 @@ public class TvActivity extends Activity {
         Collections.sort(allApps,(a,b)->String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));
     }
 
+    private List<String> getFavoritePackages(){
+        String raw=getSharedPreferences(PREFS,0).getString(PREF_FAVORITES,"");
+        List<String> packages=new ArrayList<>();
+        if(raw==null || raw.trim().isEmpty())return packages;
+        for(String item:raw.split("\\|")){
+            String value=item.trim();
+            if(!value.isEmpty() && !packages.contains(value))packages.add(value);
+        }
+        return packages;
+    }
+
+    private boolean isFavorite(String packageName){
+        return packageName!=null && getFavoritePackages().contains(packageName);
+    }
+
+    private void toggleFavorite(String packageName){
+        if(packageName==null || packageName.isEmpty())return;
+        List<String> packages=getFavoritePackages();
+        if(packages.contains(packageName))packages.remove(packageName);
+        else packages.add(0,packageName);
+        StringBuilder saved=new StringBuilder();
+        for(String value:packages){
+            if(saved.length()>0)saved.append('|');
+            saved.append(value);
+        }
+        getSharedPreferences(PREFS,0).edit().putString(PREF_FAVORITES,saved.toString()).apply();
+    }
+
+    private List<ResolveInfo> getFavoriteApps(){
+        List<ResolveInfo> favorites=new ArrayList<>();
+        for(String packageName:getFavoritePackages()){
+            for(ResolveInfo app:allApps){
+                if(app.activityInfo!=null && packageName.equals(app.activityInfo.packageName)){
+                    favorites.add(app);
+                    break;
+                }
+            }
+        }
+        return favorites;
+    }
+
+    private ResolveInfo getFeaturedApp(){
+        List<ResolveInfo> favorites=getFavoriteApps();
+        if(!favorites.isEmpty())return favorites.get(0);
+        return allApps.isEmpty()?null:allApps.get(0);
+    }
+
+    private View addFeaturedHero(LinearLayout parent){
+        ResolveInfo featured=getFeaturedApp();
+        LinearLayout hero=new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setPadding(dp(24),dp(18),dp(22),dp(18));
+        GradientDrawable heroBackground=new GradientDrawable(
+                GradientDrawable.Orientation.BL_TR,
+                new int[]{0xFF101B34,0xFF1B2A50,0xFF25163C});
+        heroBackground.setCornerRadius(dp(24));
+        heroBackground.setStroke(dp(1),0x665D8FFF);
+        hero.setBackground(heroBackground);
+
+        LinearLayout copy=new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView kicker=text("BEYOND THE SCREEN",10,0xFF77B9FF,true);
+        kicker.setLetterSpacing(.22f);
+        copy.addView(kicker,new LinearLayout.LayoutParams(-1,dp(22)));
+
+        TextView title=text("Tu mundo.\nA tu manera.",28,TEXT,true);
+        title.setLineSpacing(dp(1),1f);
+        copy.addView(title,new LinearLayout.LayoutParams(-1,dp(70)));
+
+        TextView description=text("Todo tu entretenimiento, en un solo lugar.",13,0xFFB3C2DF,false);
+        description.setMaxLines(2);
+        copy.addView(description,new LinearLayout.LayoutParams(-1,dp(38)));
+
+        TextView open=button(featured==null?"EXPLORAR APLICACIONES":"ABRIR "+String.valueOf(featured.loadLabel(getPackageManager())).toUpperCase());
+        open.setTextSize(11);
+        open.setPadding(dp(16),0,dp(16),0);
+        open.setBackground(shape(0xFF397EEB,0xFF80BFFF,14));
+        LinearLayout.LayoutParams openLp=new LinearLayout.LayoutParams(-2,dp(42));
+        openLp.topMargin=dp(8);
+        copy.addView(open,openLp);
+        open.setOnClickListener(v->{
+            if(featured!=null)launchApp(featured);
+            else buildCategoryCatalog("Todo");
+        });
+
+        hero.addView(copy,new LinearLayout.LayoutParams(0,-1,1));
+
+        LinearLayout featureSide=new LinearLayout(this);
+        featureSide.setOrientation(LinearLayout.VERTICAL);
+        featureSide.setGravity(Gravity.CENTER);
+        featureSide.setPadding(dp(10),dp(8),dp(10),dp(8));
+        GradientDrawable featurePanel=new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0x445CA9FF,0x443B2E76});
+        featurePanel.setCornerRadius(dp(22));
+        featurePanel.setStroke(dp(1),0x445B9EFF);
+        featureSide.setBackground(featurePanel);
+
+        ImageView appIcon=new ImageView(this);
+        if(featured!=null){
+            try{appIcon.setImageDrawable(featured.loadIcon(getPackageManager()));}
+            catch(Exception ignored){}
+        }else{
+            appIcon.setImageResource(R.drawable.ic_motoroll_tv);
+        }
+        appIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        featureSide.addView(appIcon,new LinearLayout.LayoutParams(dp(66),dp(66)));
+
+        TextView featureLabel=text(featured==null?"LISTO PARA TI":
+                String.valueOf(featured.loadLabel(getPackageManager())),11,TEXT,true);
+        featureLabel.setGravity(Gravity.CENTER);
+        featureLabel.setMaxLines(2);
+        featureLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams featureLabelLp=new LinearLayout.LayoutParams(dp(112),dp(34));
+        featureLabelLp.topMargin=dp(5);
+        featureSide.addView(featureLabel,featureLabelLp);
+
+        LinearLayout.LayoutParams sideLp=new LinearLayout.LayoutParams(dp(142),-1);
+        sideLp.leftMargin=dp(18);
+        hero.addView(featureSide,sideLp);
+
+        LinearLayout.LayoutParams heroLp=new LinearLayout.LayoutParams(-1,dp(188));
+        heroLp.bottomMargin=dp(13);
+        parent.addView(hero,heroLp);
+        return open;
+    }
+
+    private void addQuickAccessSection(LinearLayout parent){
+        List<ResolveInfo> favorites=getFavoriteApps();
+        boolean hasFavorites=!favorites.isEmpty();
+        List<ResolveInfo> items=hasFavorites?favorites:new ArrayList<>(allApps.subList(0,Math.min(5,allApps.size())));
+
+        LinearLayout heading=new LinearLayout(this);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label=text(hasFavorites?"TUS FAVORITOS":"ACCESOS RÁPIDOS",12,TEXT,true);
+        label.setLetterSpacing(.15f);
+        heading.addView(label,new LinearLayout.LayoutParams(0,dp(30),1));
+        TextView hint=text(hasFavorites?items.size()+" GUARDADOS":"MANTÉN OK PARA GUARDAR",9,MUTED,true);
+        hint.setLetterSpacing(.08f);
+        heading.addView(hint);
+        parent.addView(heading,new LinearLayout.LayoutParams(-1,dp(32)));
+
+        if(items.isEmpty()){
+            TextView empty=text("Instala aplicaciones para empezar a personalizar tu espacio.",13,MUTED,false);
+            parent.addView(empty,new LinearLayout.LayoutParams(-1,dp(54)));
+            return;
+        }
+
+        HorizontalScrollView rail=new HorizontalScrollView(this);
+        rail.setHorizontalScrollBarEnabled(false);
+        rail.setClipToPadding(false);
+        rail.setFocusable(false);
+        LinearLayout cards=new LinearLayout(this);
+        cards.setOrientation(LinearLayout.HORIZONTAL);
+        for(ResolveInfo app:items)addQuickAccessCard(app,cards,hasFavorites);
+        rail.addView(cards,new HorizontalScrollView.LayoutParams(-2,-2));
+        LinearLayout.LayoutParams railLp=new LinearLayout.LayoutParams(-1,dp(120));
+        railLp.bottomMargin=dp(8);
+        parent.addView(rail,railLp);
+    }
+
+    private void addQuickAccessCard(ResolveInfo app,LinearLayout parent,boolean favorite){
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(13),dp(9),dp(15),dp(9));
+        card.setBackground(shape(0xAA151F32,0x334C78B8,17));
+        makeFocusable(card);
+        card.setClickable(true);
+
+        ImageView icon=new ImageView(this);
+        try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}
+        catch(Exception ignored){}
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        card.addView(icon,new LinearLayout.LayoutParams(dp(48),dp(48)));
+
+        LinearLayout copy=new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.setGravity(Gravity.CENTER_VERTICAL);
+        TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),12,TEXT,true);
+        name.setMaxLines(2);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        copy.addView(name,new LinearLayout.LayoutParams(dp(104),dp(38)));
+        TextView marker=text(favorite?"★ FAVORITO":"MANTÉN OK",9,favorite?0xFF83BFFF:MUTED,true);
+        marker.setLetterSpacing(.08f);
+        copy.addView(marker,new LinearLayout.LayoutParams(-1,dp(18)));
+        LinearLayout.LayoutParams copyLp=new LinearLayout.LayoutParams(-2,-2);
+        copyLp.leftMargin=dp(10);
+        card.addView(copy,copyLp);
+
+        card.setOnClickListener(v->launchApp(app));
+        card.setOnLongClickListener(v->{showAppActions(app,card);return true;});
+        card.setLongClickable(true);
+
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(196),dp(96));
+        lp.rightMargin=dp(10);
+        parent.addView(card,lp);
+    }
+
     private void buildHome(){
         showingSettings=false;
         prepareRoot();
+
         LinearLayout header=new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout brandGroup=new LinearLayout(this);
         brandGroup.setGravity(Gravity.CENTER_VERTICAL);
+
         ImageView logo=new ImageView(this);
         logo.setImageResource(R.drawable.ic_motoroll_tv);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(56),dp(56)));
-        LinearLayout brandText=new LinearLayout(this);
-        brandText.setOrientation(LinearLayout.VERTICAL);
-        TextView brand=text("MOTOROLL",24,TEXT,true); brand.setLetterSpacing(.20f);
-        brandText.addView(brand);
-        LinearLayout.LayoutParams brandTextLp=new LinearLayout.LayoutParams(-2,-2);
-        brandTextLp.leftMargin=dp(13); brandGroup.addView(brandText,brandTextLp);
+        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(58),dp(58)));
+
+        TextView brand=text("MOTOROLL",24,TEXT,true);
+        brand.setLetterSpacing(.22f);
+        LinearLayout.LayoutParams brandLp=new LinearLayout.LayoutParams(-2,dp(54));
+        brandLp.leftMargin=dp(12);
+        brandGroup.addView(brand,brandLp);
         header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(60),1));
+
         TextClock clock=new TextClock(this);
-        clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
-        clock.setTextColor(TEXT); clock.setTextSize(20); clock.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        clock.setFormat12Hour("h:mm a");
+        clock.setFormat24Hour("HH:mm");
+        clock.setTextColor(TEXT);
+        clock.setTextSize(19);
+        clock.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         header.addView(clock);
+
         TextView androidSettings=button("⚙");
         androidSettings.setContentDescription("Ajustes del dispositivo");
-        androidSettings.setTextSize(20); androidSettings.setBackground(shape(0xCC17243A,0,14));
+        androidSettings.setTextSize(20);
+        androidSettings.setBackground(shape(0xCC17243A,0x334C78B8,14));
         LinearLayout.LayoutParams sysLp=new LinearLayout.LayoutParams(dp(52),dp(48));
-        sysLp.leftMargin=dp(18); header.addView(androidSettings,sysLp);
+        sysLp.leftMargin=dp(18);
+        header.addView(androidSettings,sysLp);
         androidSettings.setOnClickListener(v->openAndroidTvSettings());
-        TextView menu=button("☰  AJUSTES"); menu.setTextSize(13);
+
+        TextView menu=button("☰  AJUSTES");
+        menu.setTextSize(12);
         menu.setBackground(shape(0xCC17243A,BLUE,14));
         LinearLayout.LayoutParams menuLp=new LinearLayout.LayoutParams(dp(136),dp(48));
-        menuLp.leftMargin=dp(10); header.addView(menu,menuLp);
+        menuLp.leftMargin=dp(10);
+        header.addView(menu,menuLp);
         menu.setOnClickListener(v->buildSettings());
+
         root.addView(header,new LinearLayout.LayoutParams(-1,dp(68)));
-        LinearLayout sectionHeader=new LinearLayout(this); sectionHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView subtitle=text("TU BIBLIOTECA",12,BLUE,true); subtitle.setLetterSpacing(.20f);
-        sectionHeader.addView(subtitle,new LinearLayout.LayoutParams(0,dp(34),1));
-        TextView count=text(allApps.size()+" APPS",10,MUTED,true); count.setLetterSpacing(.12f);
-        sectionHeader.addView(count); root.addView(sectionHeader,new LinearLayout.LayoutParams(-1,dp(38)));
+
         ScrollView contentScroll=new ScrollView(this);
-        contentScroll.setVerticalScrollBarEnabled(false); contentScroll.setClipToPadding(false);
+        contentScroll.setVerticalScrollBarEnabled(false);
+        contentScroll.setClipToPadding(false);
         contentScroll.setFocusable(false);
         contentScroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
-        LinearLayout sections=new LinearLayout(this); sections.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout sections=new LinearLayout(this);
+        sections.setOrientation(LinearLayout.VERTICAL);
+        sections.setPadding(0,dp(4),0,dp(12));
         contentScroll.addView(sections,new ScrollView.LayoutParams(-1,-2));
         root.addView(contentScroll,new LinearLayout.LayoutParams(-1,0,1));
+
+        View firstFocus=addFeaturedHero(sections);
+        addQuickAccessSection(sections);
+
+        LinearLayout libraryHeading=new LinearLayout(this);
+        libraryHeading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView libraryTitle=text("TU BIBLIOTECA",12,BLUE,true);
+        libraryTitle.setLetterSpacing(.18f);
+        libraryHeading.addView(libraryTitle,new LinearLayout.LayoutParams(0,dp(34),1));
+        TextView count=text(allApps.size()+" APLICACIONES",10,MUTED,true);
+        count.setLetterSpacing(.08f);
+        libraryHeading.addView(count);
+        sections.addView(libraryHeading,new LinearLayout.LayoutParams(-1,dp(36)));
+
         View firstApp=addFlauncherSection(sections,"APLICACIONES",false);
         addFlauncherSection(sections,"ENTRETENIMIENTO",true);
-        status=text("LISTO PARA DISFRUTAR",10,MUTED,true); status.setLetterSpacing(.12f);
+
+        status=text("BEYOND THE SCREEN  •  MOTOROLL",10,MUTED,true);
+        status.setLetterSpacing(.12f);
         root.addView(status,new LinearLayout.LayoutParams(-1,dp(22)));
+
         TextView tip=text("OK ABRIR   •   MANTENER OK: OPCIONES   •   AJUSTES",10,0xFF8295B8,false);
-        tip.setLetterSpacing(.06f); root.addView(tip,new LinearLayout.LayoutParams(-1,dp(20)));
-        if(firstApp!=null)focusWhenReady(firstApp); else focusWhenReady(menu);
+        tip.setLetterSpacing(.06f);
+        root.addView(tip,new LinearLayout.LayoutParams(-1,dp(20)));
+
+        if(firstFocus!=null)focusWhenReady(firstFocus);
+        else if(firstApp!=null)focusWhenReady(firstApp);
+        else focusWhenReady(menu);
     }
 
     private View addFlauncherSection(LinearLayout parent,String heading,boolean entertainment){
@@ -493,7 +860,8 @@ public class TvActivity extends Activity {
         if(app==null||app.activityInfo==null)return;
         final String packageName=app.activityInfo.packageName;
         final String appName=String.valueOf(app.loadLabel(getPackageManager()));
-        final String[] actions={"Borrar caché (abrir ajustes)","Desinstalar aplicación","Información de la aplicación"};
+        final String favoriteAction=isFavorite(packageName)?"Quitar de favoritos":"Añadir a favoritos";
+        final String[] actions={favoriteAction,"Borrar caché (abrir ajustes)","Desinstalar aplicación","Información de la aplicación"};
         AlertDialog dialog=new AlertDialog.Builder(this)
                 .setTitle(appName)
                 .setItems(actions,(d,which)->{
@@ -502,14 +870,16 @@ public class TvActivity extends Activity {
                     d.dismiss();
                     if(appCard!=null){
                         appCard.postDelayed(()->{
-                            if(which==0)openAppCacheSettings(packageName);
-                            else if(which==1)uninstallApp(packageName);
-                            else if(which==2)openAppInfo(packageName);
+                            if(which==0)changeFavoriteFromMenu(packageName);
+                            else if(which==1)openAppCacheSettings(packageName);
+                            else if(which==2)uninstallApp(packageName);
+                            else if(which==3)openAppInfo(packageName);
                         },250);
                     }else{
-                        if(which==0)openAppCacheSettings(packageName);
-                        else if(which==1)uninstallApp(packageName);
-                        else if(which==2)openAppInfo(packageName);
+                        if(which==0)changeFavoriteFromMenu(packageName);
+                        else if(which==1)openAppCacheSettings(packageName);
+                        else if(which==2)uninstallApp(packageName);
+                        else if(which==3)openAppInfo(packageName);
                     }
                 })
                 .setOnDismissListener(d->{
@@ -521,6 +891,15 @@ public class TvActivity extends Activity {
         });
         dialog.show();
     }
+    private void changeFavoriteFromMenu(String packageName){
+        boolean wasFavorite=isFavorite(packageName);
+        toggleFavorite(packageName);
+        Toast.makeText(this,wasFavorite?"Quitado de favoritos":"Añadido a favoritos",
+                Toast.LENGTH_SHORT).show();
+        if("Todo".equals(selectedCategory))buildHome();
+        else buildCategoryCatalog(selectedCategory);
+    }
+
     private void uninstallApp(String packageName){
         if(packageName==null||packageName.isEmpty()||getPackageName().equals(packageName)){
             Toast.makeText(this,"Esta aplicación no se puede desinstalar desde aquí.",Toast.LENGTH_LONG).show();
@@ -667,6 +1046,24 @@ public class TvActivity extends Activity {
                 recoveryEnabled?"Recuperación por accesibilidad: ACTIVADA":"Recuperación por accesibilidad",
                 recoveryEnabled?"Vigila cuándo el inicio del deco vuelve a abrirse":"Opcional: ayuda a recuperar MOTOROLL si VTR abre su propio inicio",
                 ()->openRecoveryAccessibilitySettings());
+
+        boolean ambientEnabled=getSharedPreferences(PREFS,0).getBoolean(PREF_AMBIENT,true);
+        addSettingsAction(content,"◉",
+                ambientEnabled?"Modo ambiente: ACTIVADO":"Modo ambiente: DESACTIVADO",
+                ambientEnabled?"Reloj y marca tras 3 minutos sin usar":"Ahorra pantalla cuando no estás usando el deco",
+                ()->{
+                    getSharedPreferences(PREFS,0).edit().putBoolean(PREF_AMBIENT,!ambientEnabled).apply();
+                    buildSettings();
+                });
+
+        boolean soundsEnabled=getSharedPreferences(PREFS,0).getBoolean(PREF_NAV_SOUNDS,false);
+        addSettingsAction(content,"♫",
+                soundsEnabled?"Sonidos de navegación: ACTIVADOS":"Sonidos de navegación: DESACTIVADOS",
+                "Efectos discretos al navegar con el control remoto",
+                ()->{
+                    getSharedPreferences(PREFS,0).edit().putBoolean(PREF_NAV_SOUNDS,!soundsEnabled).apply();
+                    buildSettings();
+                });
 
         addSettingsSectionTitle(content,"APARIENCIA");
         TextView wallpaperDescription=text("Elige el ambiente que más te guste.",13,MUTED,false);
