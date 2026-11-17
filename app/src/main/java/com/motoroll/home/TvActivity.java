@@ -1,6 +1,7 @@
 package com.motoroll.home;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.app.role.RoleManager;
 import android.content.Intent;
@@ -287,9 +288,56 @@ public class TvActivity extends Activity {
         name.setGravity(Gravity.CENTER); name.setMaxLines(2);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(42)); lp.topMargin=dp(8); card.addView(name,lp);
         card.setOnClickListener(v->launchApp(app));
+        // Holding OK on an Android TV remote opens per-app actions.
+        card.setLongClickable(true);
+        card.setOnLongClickListener(v->{
+            showAppActions(app,card);
+            return true;
+        });
         GridLayout.LayoutParams p=new GridLayout.LayoutParams(); p.width=width; p.height=dp(150);
         p.setMargins(dp(8),dp(8),dp(8),dp(8)); grid.addView(card,p);
     }
+    private void showAppActions(ResolveInfo app,View appCard){
+        if(app==null||app.activityInfo==null)return;
+        final String packageName=app.activityInfo.packageName;
+        final String appName=String.valueOf(app.loadLabel(getPackageManager()));
+        final String[] actions={"Desinstalar / Borrar aplicación","Información de la aplicación"};
+        AlertDialog dialog=new AlertDialog.Builder(this)
+                .setTitle(appName)
+                .setItems(actions,(d,which)->{
+                    if(which==0)uninstallApp(packageName);
+                    else if(which==1)openAppInfo(packageName);
+                })
+                .setOnDismissListener(d->{
+                    if(appCard!=null&&appCard.isAttachedToWindow())appCard.requestFocus();
+                })
+                .create();
+        dialog.setOnShowListener(d->{
+            if(dialog.getListView()!=null)dialog.getListView().setSelector(android.R.drawable.list_selector_background);
+        });
+        dialog.show();
+    }
+    private void uninstallApp(String packageName){
+        if(packageName==null||packageName.isEmpty()||getPackageName().equals(packageName)){
+            Toast.makeText(this,"Esta aplicación no se puede desinstalar desde aquí.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        try{
+            Intent uninstall=new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+packageName));
+            startActivity(uninstall);
+        }catch(Exception e){
+            Toast.makeText(this,"Android no permite desinstalar esta aplicación.",Toast.LENGTH_LONG).show();
+        }
+    }
+    private void openAppInfo(String packageName){
+        try{
+            Intent info=new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+packageName));
+            startActivity(info);
+        }catch(Exception e){
+            Toast.makeText(this,"No se pudo abrir la información de la aplicación.",Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void launchApp(ResolveInfo app){
         try{
             Intent launch=getPackageManager().getLaunchIntentForPackage(app.activityInfo.packageName);
