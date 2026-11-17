@@ -8,6 +8,7 @@ def motorollKeyAlias = System.getenv('MOTOROLL_KEY_ALIAS')
 def motorollKeyPassword = System.getenv('MOTOROLL_KEY_PASSWORD')
 
 // Motoroll TV Personal Edition
+// 1.3.1 cinematic wallpapers: six photo backdrops with optional low-power parallax.
 android {
     namespace 'com.motoroll.home'
     compileSdk 36
