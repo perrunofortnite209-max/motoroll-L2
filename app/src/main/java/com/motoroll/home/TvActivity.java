@@ -74,6 +74,15 @@ public class TvActivity extends Activity {
     private boolean ambientShowing;
     private boolean activityResumed;
     private FrameLayout secretOverlay;
+    private FrameLayout miniGameOverlay;
+    private View miniGameView;
+    private boolean miniGameActive;
+    private boolean debugRemoteTest;
+    private int miniGameLane=1, miniGameScore=0, miniGameLives=3, miniGameTick=0;
+    private final float[] miniGameAsteroidY={-120f,-360f,-600f,-840f,-1080f};
+    private final int[] miniGameAsteroidLane={0,2,1,0,2};
+    private final Handler miniGameHandler=new Handler(Looper.getMainLooper());
+    private final Runnable miniGameLoop=this::updateMiniGame;
     private final StringBuilder secretDigits=new StringBuilder();
     private long secretLastDigitAt=0L;
     private FrameLayout screenFrame;
@@ -239,8 +248,23 @@ public class TvActivity extends Activity {
     }
     @Override public boolean dispatchKeyEvent(KeyEvent event){
         if(event.getAction()==KeyEvent.ACTION_DOWN && event.getRepeatCount()==0){
+            if(miniGameActive){
+                int gameKey=event.getKeyCode();
+                if(gameKey==KeyEvent.KEYCODE_BACK || gameKey==KeyEvent.KEYCODE_ESCAPE){
+                    closeMiniGame();
+                    return true;
+                }
+                if(gameKey==KeyEvent.KEYCODE_DPAD_LEFT){miniGameLane=Math.max(0,miniGameLane-1);if(miniGameView!=null)miniGameView.invalidate();return true;}
+                if(gameKey==KeyEvent.KEYCODE_DPAD_RIGHT){miniGameLane=Math.min(2,miniGameLane+1);if(miniGameView!=null)miniGameView.invalidate();return true;}
+                if(gameKey==KeyEvent.KEYCODE_DPAD_CENTER || gameKey==KeyEvent.KEYCODE_ENTER || gameKey==KeyEvent.KEYCODE_BUTTON_A){
+                    if(miniGameLives<=0)startMiniGameRound();
+                    return true;
+                }
+                return true;
+            }
             if(secretOverlay!=null){
-                hideSecretEasterEgg();
+                if(event.getKeyCode()==KeyEvent.KEYCODE_BACK || event.getKeyCode()==KeyEvent.KEYCODE_ESCAPE){hideSecretEasterEgg();return true;}
+                if(event.getKeyCode()==KeyEvent.KEYCODE_DPAD_CENTER || event.getKeyCode()==KeyEvent.KEYCODE_ENTER)return super.dispatchKeyEvent(event);
                 return true;
             }
             if(ambientShowing){
@@ -260,6 +284,9 @@ public class TvActivity extends Activity {
                     return true;
                 }
             }
+            if(debugRemoteTest){
+                Toast.makeText(this,"Control detectado: "+KeyEvent.keyCodeToString(key),Toast.LENGTH_SHORT).show();
+            }
             scheduleAmbientMode();
         }
         return super.dispatchKeyEvent(event);
@@ -267,6 +294,7 @@ public class TvActivity extends Activity {
 
     private void showSecretEasterEgg(){
         if(screenFrame==null || secretOverlay!=null)return;
+        getSharedPreferences(PREFS,0).edit().putBoolean("secret_unlocked",true).apply();
         idleHandler.removeCallbacks(ambientRunnable);
         FrameLayout overlay=new FrameLayout(this);
         overlay.setBackgroundColor(0xFF03030D);
@@ -277,14 +305,11 @@ public class TvActivity extends Activity {
             @Override protected void onDraw(Canvas canvas){
                 float w=getWidth(),h=getHeight();
                 canvas.drawColor(0xFF03030D);
-                starPaint.setStyle(Paint.Style.FILL);
-                for(int i=0;i<115;i++){
+                for(int i=0;i<145;i++){
                     float x=((i*7919)%1000)/1000f*w;
                     float y=((i*3571)%997)/997f*h;
-                    float radius=(i%9==0)?2.1f:((i%3==0)?1.35f:0.7f);
-                    int alpha=100+(i*37%156);
-                    starPaint.setColor((alpha<<24)|0x00DCE7FF);
-                    canvas.drawCircle(x,y,radius,starPaint);
+                    starPaint.setColor(((100+(i*37%156))<<24)|0x00DCE7FF);
+                    canvas.drawCircle(x,y,(i%9==0)?2.1f:((i%3==0)?1.35f:.7f),starPaint);
                 }
                 starPaint.setShader(new RadialGradient(w*.5f,h*.48f,Math.max(w,h)*.55f,
                         new int[]{0x553B1D79,0x22101848,0x0003030D},
@@ -297,35 +322,201 @@ public class TvActivity extends Activity {
         LinearLayout content=new LinearLayout(this);
         content.setGravity(Gravity.CENTER);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(36),dp(28),dp(36),dp(28));
+        content.setPadding(dp(36),dp(18),dp(36),dp(18));
         TextView eyebrow=text("TRANSMISIÓN CLASIFICADA  •  08 / 20 / 20",12,0xFFB7A2FF,true);
-        eyebrow.setGravity(Gravity.CENTER);
-        eyebrow.setLetterSpacing(.18f);
-        content.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(34)));
-        TextView title=text("MOTOROLL",46,0xFFF4F0FF,true);
-        title.setGravity(Gravity.CENTER);
-        title.setLetterSpacing(.22f);
-        content.addView(title,new LinearLayout.LayoutParams(-1,dp(68)));
-        TextView subtitle=text("DEEP SPACE // ARCHIVE 001",17,0xFF9E8BFF,true);
+        eyebrow.setGravity(Gravity.CENTER);eyebrow.setLetterSpacing(.18f);
+        content.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(32)));
+        TextView title=text("MOTOROLL",42,0xFFF4F0FF,true);
+        title.setGravity(Gravity.CENTER);title.setLetterSpacing(.22f);
+        content.addView(title,new LinearLayout.LayoutParams(-1,dp(58)));
+        TextView subtitle=text("DEEP SPACE // ARCHIVE 001",15,0xFF9E8BFF,true);
         subtitle.setGravity(Gravity.CENTER);
-        content.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(42)));
-        TextView message=text("Has encontrado el acceso oculto.\nEl universo MOTOROLL es más grande de lo que parece.",15,0xFFD4D5EA,false);
+        content.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(34)));
+        TextView message=text("Acceso oculto desbloqueado. El universo MOTOROLL es más grande de lo que parece.",14,0xFFD4D5EA,false);
         message.setGravity(Gravity.CENTER);
-        message.setLineSpacing(dp(5),1f);
-        LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,dp(76));
-        messageLp.topMargin=dp(12);
-        content.addView(message,messageLp);
-        TextView close=text("✦   PULSA CUALQUIER TECLA PARA REGRESAR   ✦",11,0xFF8D91B8,true);
-        close.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams closeLp=new LinearLayout.LayoutParams(-1,dp(42));
-        closeLp.topMargin=dp(20);
-        content.addView(close,closeLp);
+        content.addView(message,new LinearLayout.LayoutParams(-1,dp(54)));
+        TextView play=button("✦   JUGAR: ASTEROID RUN");
+        play.setBackground(shape(0xFF39245D,0xFFB47BFF,15));
+        play.setOnClickListener(v->startMiniGame());
+        LinearLayout.LayoutParams playLp=new LinearLayout.LayoutParams(dp(340),dp(54));
+        playLp.topMargin=dp(14);content.addView(play,playLp);
+        TextView debug=button("⚙   DEBUG SETTINGS");
+        debug.setBackground(shape(0xFF172A42,0xFF559BFF,15));
+        debug.setOnClickListener(v->buildDebugSettings());
+        LinearLayout.LayoutParams debugLp=new LinearLayout.LayoutParams(dp(340),dp(50));
+        debugLp.topMargin=dp(9);content.addView(debug,debugLp);
+        TextView close=button("VOLVER");
+        close.setTextSize(12);close.setBackground(shape(0x66141D2E,0x335B6B8D,14));
+        close.setOnClickListener(v->hideSecretEasterEgg());
+        LinearLayout.LayoutParams closeLp=new LinearLayout.LayoutParams(dp(200),dp(42));
+        closeLp.topMargin=dp(10);content.addView(close,closeLp);
         overlay.addView(content,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
         screenFrame.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        overlay.setAlpha(0f);
-        overlay.animate().alpha(1f).setDuration(850).start();
+        overlay.setAlpha(0f);overlay.animate().alpha(1f).setDuration(650).start();
         secretOverlay=overlay;
-        overlay.requestFocus();
+        focusWhenReady(play);
+    }
+
+    private void startMiniGame(){
+        if(screenFrame==null)return;
+        if(secretOverlay!=null){screenFrame.removeView(secretOverlay);secretOverlay=null;}
+        miniGameActive=true;
+        miniGameOverlay=new FrameLayout(this);
+        miniGameOverlay.setBackgroundColor(0xFF050713);
+        LinearLayout hud=new LinearLayout(this);
+        hud.setOrientation(LinearLayout.VERTICAL);
+        hud.setPadding(dp(30),dp(18),dp(30),dp(12));
+        TextView heading=text("MOTOROLL // ASTEROID RUN",19,TEXT,true);
+        heading.setLetterSpacing(.12f);
+        hud.addView(heading,new LinearLayout.LayoutParams(-1,dp(34)));
+        TextView instructions=text("◀  ▶  MOVER   •   ESQUIVA LOS ASTEROIDES   •   BACK: SALIR",11,MUTED,true);
+        hud.addView(instructions,new LinearLayout.LayoutParams(-1,dp(26)));
+        FrameLayout.LayoutParams hudLp=new FrameLayout.LayoutParams(-1,dp(78),Gravity.TOP);
+        miniGameOverlay.addView(hud,hudLp);
+        miniGameView=new View(this){
+            private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(Canvas c){
+                float w=getWidth(),h=getHeight();
+                c.drawColor(0xFF050713);
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(0x334F7FCB);
+                for(int lane=1;lane<=2;lane++)c.drawLine(w*lane/3f,0,w*lane/3f,h,p);
+                p.setStyle(Paint.Style.FILL);
+                for(int i=0;i<miniGameAsteroidY.length;i++){
+                    float x=w*(miniGameAsteroidLane[i]+.5f)/3f,y=miniGameAsteroidY[i];
+                    if(y>-dp(35)&&y<h+dp(35)){
+                        p.setColor(0xFFFF9A58);c.drawCircle(x,y,dp(15),p);
+                        p.setColor(0xFF713D45);c.drawCircle(x-dp(5),y-dp(4),dp(4),p);
+                        c.drawCircle(x+dp(6),y+dp(5),dp(3),p);
+                    }
+                }
+                float shipX=w*(miniGameLane+.5f)/3f,shipY=h-dp(54);
+                p.setColor(0xFF8E7BFF);
+                android.graphics.Path ship=new android.graphics.Path();
+                ship.moveTo(shipX,shipY-dp(25));ship.lineTo(shipX-dp(18),shipY+dp(18));
+                ship.lineTo(shipX,shipY+dp(10));ship.lineTo(shipX+dp(18),shipY+dp(18));ship.close();
+                c.drawPath(ship,p);
+                p.setColor(0xFF58C9FF);c.drawCircle(shipX,shipY+dp(5),dp(5),p);
+                p.setTextSize(dp(17));p.setColor(Color.WHITE);
+                c.drawText("PUNTOS  "+miniGameScore,dp(18),dp(28),p);
+                c.drawText("VIDAS  "+miniGameLives,dp(18),dp(54),p);
+                if(miniGameLives<=0){
+                    p.setTextAlign(Paint.Align.CENTER);p.setTextSize(dp(30));p.setColor(0xFFFFFFFF);
+                    c.drawText("FIN DE LA PARTIDA",w/2f,h*.44f,p);
+                    p.setTextSize(dp(16));p.setColor(0xFFBDB5FF);
+                    c.drawText("OK: VOLVER A INTENTAR  •  BACK: SALIR",w/2f,h*.44f+dp(36),p);
+                    p.setTextAlign(Paint.Align.LEFT);
+                }
+            }
+        };
+        FrameLayout.LayoutParams gameLp=new FrameLayout.LayoutParams(-1,-1);
+        gameLp.topMargin=dp(78);
+        miniGameOverlay.addView(miniGameView,gameLp);
+        screenFrame.addView(miniGameOverlay,new FrameLayout.LayoutParams(-1,-1));
+        startMiniGameRound();
+        miniGameView.requestFocus();
+    }
+
+    private void startMiniGameRound(){
+        miniGameHandler.removeCallbacks(miniGameLoop);
+        miniGameLane=1;miniGameScore=0;miniGameLives=3;miniGameTick=0;
+        miniGameAsteroidY[0]=-dp(100);miniGameAsteroidY[1]=-dp(330);
+        miniGameAsteroidY[2]=-dp(560);miniGameAsteroidY[3]=-dp(790);
+        miniGameAsteroidY[4]=-dp(1020);
+        miniGameAsteroidLane[0]=0;miniGameAsteroidLane[1]=2;
+        miniGameAsteroidLane[2]=1;miniGameAsteroidLane[3]=0;miniGameAsteroidLane[4]=2;
+        if(miniGameView!=null)miniGameView.invalidate();
+        miniGameHandler.postDelayed(miniGameLoop,70);
+    }
+
+    private void updateMiniGame(){
+        if(!miniGameActive || miniGameView==null || miniGameLives<=0)return;
+        miniGameTick++;
+        float speed=dp(5)+(miniGameScore/12)*dp(0.45f);
+        float hitY=miniGameView.getHeight()-dp(75);
+        for(int i=0;i<miniGameAsteroidY.length;i++){
+            miniGameAsteroidY[i]+=speed;
+            if(miniGameAsteroidY[i]>=hitY-dp(8)&&miniGameAsteroidY[i]<=hitY+dp(8)
+                    &&miniGameAsteroidLane[i]==miniGameLane){
+                miniGameLives--;
+                miniGameAsteroidY[i]=-dp(100);
+                miniGameAsteroidLane[i]=(miniGameAsteroidLane[i]+1+(miniGameTick%2))%3;
+            }else if(miniGameAsteroidY[i]>miniGameView.getHeight()+dp(20)){
+                miniGameScore++;
+                miniGameAsteroidY[i]=-dp(80);
+                miniGameAsteroidLane[i]=(i+miniGameTick)%3;
+            }
+        }
+        miniGameView.invalidate();
+        if(miniGameLives>0)miniGameHandler.postDelayed(miniGameLoop,70);
+    }
+
+    private void closeMiniGame(){
+        miniGameActive=false;miniGameHandler.removeCallbacks(miniGameLoop);
+        if(miniGameOverlay!=null && miniGameOverlay.getParent() instanceof ViewGroup)
+            ((ViewGroup)miniGameOverlay.getParent()).removeView(miniGameOverlay);
+        miniGameOverlay=null;miniGameView=null;
+        showSecretEasterEgg();
+    }
+
+    private void buildDebugSettings(){
+        debugRemoteTest=false;
+        showingSettings=true;
+        prepareRoot();
+        addBrandHeader("DEBUG SETTINGS");
+        ScrollView scroll=new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(4),dp(8),dp(4),dp(28));
+        scroll.addView(content);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        TextView intro=text("HERRAMIENTAS INTERNAS DE MOTOROLL",12,0xFF8FBFFF,true);
+        content.addView(intro,new LinearLayout.LayoutParams(-1,dp(30)));
+        addSettingsAction(content,"◈","Diagnóstico del dispositivo",
+                "Modelo, Android, resolución, memoria y almacenamiento",()->showDeviceDiagnostics());
+        addSettingsAction(content,"⌁","Probar control remoto",
+                "Muestra qué teclas está recibiendo MOTOROLL",()->{
+                    debugRemoteTest=true;
+                    Toast.makeText(this,"Prueba activa. Pulsa cualquier tecla; vuelve a entrar aquí para detenerla.",Toast.LENGTH_LONG).show();
+                });
+        addSettingsAction(content,"↻","Actualizar biblioteca de apps",
+                "Vuelve a consultar las aplicaciones instaladas",()->{
+                    loadApps();buildHome();
+                    Toast.makeText(this,"Biblioteca actualizada",Toast.LENGTH_SHORT).show();
+                });
+        addSettingsAction(content,"⟳","Reiniciar interfaz MOTOROLL",
+                "Reconstruye la pantalla sin reiniciar el deco ni cerrar otras apps",()->buildHome());
+        addSettingsAction(content,"ⓘ","Información de MOTOROLL",
+                "Versión, paquete y estado del acceso secreto",()->{
+                    new AlertDialog.Builder(this).setTitle("MOTOROLL TV")
+                            .setMessage("Versión: "+BuildConfig.VERSION_NAME+" ("+BuildConfig.VERSION_CODE+")\nPaquete: "+getPackageName()+"\nAcceso secreto: desbloqueado")
+                            .setPositiveButton("Cerrar",null).show();
+                });
+        TextView note=text("Estas herramientas no cambian servicios del sistema ni ajustes protegidos por Android.",12,MUTED,false);
+        content.addView(note,new LinearLayout.LayoutParams(-1,dp(46)));
+        TextView back=button("←  VOLVER AL INICIO SECRETO");
+        back.setBackground(shape(PANEL_FOCUS,BLUE,15));
+        back.setOnClickListener(v->showSecretEasterEgg());
+        content.addView(back,new LinearLayout.LayoutParams(dp(330),dp(52)));
+        focusWhenReady(back);
+    }
+
+    private void showDeviceDiagnostics(){
+        android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+        android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo memory=new android.app.ActivityManager.MemoryInfo();
+        if(am!=null)am.getMemoryInfo(memory);
+        android.os.StatFs stat=new android.os.StatFs(getFilesDir().getAbsolutePath());
+        long total=stat.getTotalBytes(),free=stat.getAvailableBytes();
+        String info="Fabricante: "+Build.MANUFACTURER+"\nModelo: "+Build.MODEL
+                +"\nAndroid: "+Build.VERSION.RELEASE+" (API "+Build.VERSION.SDK_INT+")"
+                +"\nResolución: "+metrics.widthPixels+" × "+metrics.heightPixels
+                +"\nMemoria RAM libre: "+(memory.availMem/(1024L*1024L))+" MB"
+                +"\nAlmacenamiento libre: "+(free/(1024L*1024L))+" MB de "+(total/(1024L*1024L))+" MB"
+                +"\nVersión MOTOROLL: "+BuildConfig.VERSION_NAME;
+        new AlertDialog.Builder(this).setTitle("Diagnóstico del dispositivo")
+                .setMessage(info).setPositiveButton("Cerrar",null).show();
     }
 
     private void hideSecretEasterEgg(){
@@ -757,6 +948,16 @@ public class TvActivity extends Activity {
         sysLp.leftMargin=dp(18);
         header.addView(androidSettings,sysLp);
         androidSettings.setOnClickListener(v->openAndroidTvSettings());
+
+        if(getSharedPreferences(PREFS,0).getBoolean("secret_unlocked",false)){
+            TextView debug=button("DEBUG SETTINGS");
+            debug.setTextSize(10);
+            debug.setBackground(shape(0xCC17243A,0xFF8B72E8,14));
+            LinearLayout.LayoutParams debugLp=new LinearLayout.LayoutParams(dp(142),dp(48));
+            debugLp.leftMargin=dp(10);
+            header.addView(debug,debugLp);
+            debug.setOnClickListener(v->buildDebugSettings());
+        }
 
         TextView menu=button("☰  AJUSTES");
         menu.setTextSize(12);
