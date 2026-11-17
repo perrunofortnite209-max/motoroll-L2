@@ -246,13 +246,22 @@ public class TvActivity extends Activity {
         }
         View navSpacer=new View(this);
         sidebar.addView(navSpacer,new LinearLayout.LayoutParams(1,0,1));
-        TextView settings=button("⚙   Ajustes");
+        TextView systemSettings=button("⚙   Android TV");
+        systemSettings.setGravity(Gravity.CENTER_VERTICAL);
+        systemSettings.setTextSize(14);
+        systemSettings.setPadding(dp(16),0,dp(10),0);
+        systemSettings.setBackground(shape(PANEL,0,14));
+        systemSettings.setOnClickListener(v->openAndroidTvSettings());
+        sidebar.addView(systemSettings,new LinearLayout.LayoutParams(-1,dp(48)));
+        TextView settings=button("⌘   Motoroll");
         settings.setGravity(Gravity.CENTER_VERTICAL);
         settings.setTextSize(14);
         settings.setPadding(dp(16),0,dp(10),0);
         settings.setBackground(shape(PANEL,0,14));
         settings.setOnClickListener(v->buildSettings());
-        sidebar.addView(settings,new LinearLayout.LayoutParams(-1,dp(50)));
+        LinearLayout.LayoutParams settingsLp=new LinearLayout.LayoutParams(-1,dp(48));
+        settingsLp.topMargin=dp(7);
+        sidebar.addView(settings,settingsLp);
         workspace.addView(sidebar,new LinearLayout.LayoutParams(dp(194),-1));
 
         LinearLayout content=new LinearLayout(this);
@@ -280,18 +289,18 @@ public class TvActivity extends Activity {
         section.setLetterSpacing(.16f);
         content.addView(section,new LinearLayout.LayoutParams(-1,dp(34)));
 
-        HorizontalScrollView rail=new HorizontalScrollView(this);
-        rail.setHorizontalScrollBarEnabled(false);
-        rail.setClipToPadding(false);
-        rail.setFillViewport(false);
-        rail.setFocusable(false);
-        rail.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        // Multi-row library: use the TV width instead of one oversized horizontal rail.
+        ScrollView appScroll=new ScrollView(this);
+        appScroll.setVerticalScrollBarEnabled(false);
+        appScroll.setClipToPadding(false);
+        appScroll.setFillViewport(false);
+        appScroll.setFocusable(false);
+        appScroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         grid=new GridLayout(this);
-        grid.setRowCount(1);
-        grid.setColumnCount(Math.max(1,allApps.size()));
         grid.setUseDefaultMargins(false);
-        rail.addView(grid,new HorizontalScrollView.LayoutParams(-2,-2));
-        content.addView(rail,new LinearLayout.LayoutParams(-1,dp(252)));
+        grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
+        appScroll.addView(grid,new ScrollView.LayoutParams(-1,-2));
+        content.addView(appScroll,new LinearLayout.LayoutParams(-1,0,1));
 
         status=text("",13,MUTED,false);
         content.addView(status,new LinearLayout.LayoutParams(-1,dp(38)));
@@ -319,16 +328,21 @@ public class TvActivity extends Activity {
         }
     }
     private void showFilteredApps(){
-        grid.removeAllViews(); grid.setRowCount(1);
-        PackageManager pm=getPackageManager();
-        int count=0;
-        for(ResolveInfo app:allApps){if(matches(app)){addAppCard(app,dp(188));count++;}}
-        grid.setColumnCount(Math.max(1,count));
-        status.setText(count+" aplicaciones disponibles");
-        if(count==0){
+        grid.removeAllViews();
+        List<ResolveInfo> visible=new ArrayList<>();
+        for(ResolveInfo app:allApps)if(matches(app))visible.add(app);
+        int screenWidth=getResources().getDisplayMetrics().widthPixels;
+        int availableWidth=screenWidth-dp(54*2)-dp(194)-dp(30)-dp(30);
+        int cardWidth=dp(176);
+        int columns=Math.max(3,Math.min(7,(availableWidth+dp(14))/(cardWidth+dp(14))));
+        grid.setColumnCount(columns);
+        grid.setRowCount(Math.max(1,(int)Math.ceil(visible.size()/(double)columns)));
+        for(ResolveInfo app:visible)addAppCard(app,cardWidth);
+        status.setText(visible.size()+" aplicaciones  ·  "+columns+" por fila");
+        if(visible.isEmpty()){
             TextView empty=text("No hay aplicaciones en esta categoría.",16,MUTED,false);
             GridLayout.LayoutParams ep=new GridLayout.LayoutParams();
-            ep.width=dp(420); ep.height=dp(180);
+            ep.width=dp(420); ep.height=dp(150);
             grid.addView(empty,ep);
         }
     }
@@ -339,10 +353,10 @@ public class TvActivity extends Activity {
         ImageView icon=new ImageView(this);
         try{icon.setImageDrawable(app.loadIcon(getPackageManager()));}catch(Exception ignored){}
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        card.addView(icon,new LinearLayout.LayoutParams(dp(88),dp(88)));
-        TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),14,TEXT,true);
+        card.addView(icon,new LinearLayout.LayoutParams(dp(68),dp(68)));
+        TextView name=text(String.valueOf(app.loadLabel(getPackageManager())),13,TEXT,true);
         name.setGravity(Gravity.CENTER); name.setMaxLines(2);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(42)); lp.topMargin=dp(8); card.addView(name,lp);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(38)); lp.topMargin=dp(7); card.addView(name,lp);
         card.setOnClickListener(v->launchApp(app));
         // Holding OK on an Android TV remote opens per-app actions.
         card.setLongClickable(true);
@@ -351,8 +365,8 @@ public class TvActivity extends Activity {
             return true;
         });
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();
-        p.width=width; p.height=dp(218);
-        p.setMargins(0,dp(10),dp(18),dp(10));
+        p.width=width; p.height=dp(154);
+        p.setMargins(0,dp(6),dp(14),dp(6));
         grid.addView(card,p);
     }
     private void showAppActions(ResolveInfo app,View appCard){
@@ -441,6 +455,10 @@ public class TvActivity extends Activity {
         TextView description=text("Configura Motoroll TV como pantalla de inicio y administra su comportamiento.",16,MUTED,false);
         root.addView(description,new LinearLayout.LayoutParams(dp(850),dp(58)));
         LinearLayout options=new LinearLayout(this); options.setOrientation(LinearLayout.VERTICAL);
+        TextView androidSettings=button("⚙   Abrir configuración de Android TV");
+        androidSettings.setGravity(Gravity.CENTER_VERTICAL); androidSettings.setPadding(dp(22),0,dp(22),0);
+        androidSettings.setOnClickListener(v->openAndroidTvSettings());
+        options.addView(androidSettings,new LinearLayout.LayoutParams(dp(760),dp(64)));
         TextView home=button("⌂   Establecer Motoroll TV como launcher predeterminado");
         home.setGravity(Gravity.CENTER_VERTICAL); home.setPadding(dp(22),0,dp(22),0);
         home.setOnClickListener(v->requestDefaultLauncher());
@@ -464,6 +482,25 @@ public class TvActivity extends Activity {
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(390),dp(56));bp.topMargin=dp(22);root.addView(back,bp);
         focusWhenReady(home);
     }
+    private void openAndroidTvSettings(){
+        String[] actions={Settings.ACTION_SETTINGS,Settings.ACTION_WIRELESS_SETTINGS,
+                Settings.ACTION_APPLICATION_SETTINGS,Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS};
+        for(String action:actions){
+            try{
+                Intent intent=new Intent(action);
+                if(intent.resolveActivity(getPackageManager())!=null){
+                    startActivity(intent);
+                    return;
+                }
+            }catch(Exception ignored){}
+        }
+        try{
+            Intent tvSettings=getPackageManager().getLaunchIntentForPackage("com.android.tv.settings");
+            if(tvSettings!=null){startActivity(tvSettings);return;}
+        }catch(Exception ignored){}
+        Toast.makeText(this,"Este dispositivo no permite abrir la configuración de Android TV.",Toast.LENGTH_LONG).show();
+    }
+
     private void requestDefaultLauncher(){
         try{
             if(Build.VERSION.SDK_INT>=29){
