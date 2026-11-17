@@ -64,6 +64,8 @@ public class TvActivity extends Activity {
     private static final String PREF_FAVORITES="favorite_packages";
     private static final String PREF_AMBIENT="ambient_mode_enabled";
     private static final String PREF_NAV_SOUNDS="navigation_sounds";
+    private static final String PREF_THEME="visual_theme";
+    private static final String PREF_MOTION="ambient_motion";
     private static final long AMBIENT_IDLE_MS=180000L;
     private final Handler idleHandler=new Handler(Looper.getMainLooper());
     private final Runnable ambientRunnable=this::showAmbientMode;
@@ -119,13 +121,31 @@ public class TvActivity extends Activity {
         t.setGravity(Gravity.CENTER_VERTICAL); t.setIncludeFontPadding(true);
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t;
     }
+    private int getThemeAccent(){
+        switch(getSharedPreferences(PREFS,0).getInt(PREF_THEME,1)){
+            case 0:return 0xFF559BFF;
+            case 2:return 0xFF9B9DAA;
+            case 3:return 0xFF48C7D8;
+            default:return 0xFFB47BFF;
+        }
+    }
+    private int getThemeFocus(){
+        switch(getSharedPreferences(PREFS,0).getInt(PREF_THEME,1)){
+            case 0:return 0xFF1B355B;
+            case 2:return 0xFF292B35;
+            case 3:return 0xFF153B46;
+            default:return 0xFF382451;
+        }
+    }
     private void focusStyle(View v,boolean focused){
         if(focused){
+            int accent=getThemeAccent();
+            int focus=getThemeFocus();
             GradientDrawable glow=new GradientDrawable(
                     GradientDrawable.Orientation.LEFT_RIGHT,
-                    new int[]{0xFF1B355B,0xFF28214D});
+                    new int[]{focus,0xFF28214D});
             glow.setCornerRadius(dp(18));
-            glow.setStroke(dp(3),0xFF65B7FF);
+            glow.setStroke(dp(3),accent);
             v.setBackground(glow);
             v.animate().scaleX(1.055f).scaleY(1.055f).setDuration(130).start();
             v.setElevation(dp(12));
@@ -232,9 +252,10 @@ public class TvActivity extends Activity {
         if(current!=null && current.isAttachedToWindow())ambientReturnFocus=current;
 
         FrameLayout overlay=new FrameLayout(this);
+        int accent=getThemeAccent();
         GradientDrawable backdrop=new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF080D18,0xFF111C34,0xFF170F29});
+                new int[]{0xFF080A12,accent&0x55333333,0xFF100B19});
         overlay.setBackground(backdrop);
         overlay.setFocusable(false);
         overlay.setClickable(false);
@@ -1015,6 +1036,29 @@ public class TvActivity extends Activity {
         return card;
     }
 
+    private void confirmPresentationReset(){
+        new AlertDialog.Builder(this)
+                .setTitle("Restablecer MOTOROLL")
+                .setMessage("Se reiniciarán los favoritos, el tema y las preferencias visuales. No se borrarán datos de otras aplicaciones ni la configuración HOME de Android. Al terminar volverá la presentación de bienvenida.")
+                .setNegativeButton("Cancelar",null)
+                .setPositiveButton("Restablecer",(dialog,which)->{
+                    android.content.SharedPreferences prefs=getSharedPreferences(PREFS,0);
+                    boolean homeRequested=prefs.getBoolean(PREF_HOME_SETUP_REQUESTED,false);
+                    boolean ambient=prefs.getBoolean(PREF_AMBIENT,true);
+                    boolean sounds=prefs.getBoolean(PREF_NAV_SOUNDS,false);
+                    prefs.edit().clear()
+                            .putBoolean(PREF_HOME_SETUP_REQUESTED,homeRequested)
+                            .putBoolean(PREF_AMBIENT,ambient)
+                            .putBoolean(PREF_NAV_SOUNDS,sounds)
+                            .putBoolean(PREF_WELCOME,false)
+                            .putInt("wallpaper",2)
+                            .putInt(PREF_THEME,1)
+                            .putBoolean(PREF_MOTION,false)
+                            .apply();
+                    buildWelcome();
+                }).show();
+    }
+
     private void buildSettings(){
         showingSettings=true;
         prepareRoot();
@@ -1088,25 +1132,29 @@ public class TvActivity extends Activity {
         LinearLayout wallpapers=new LinearLayout(this);
         wallpapers.setOrientation(LinearLayout.HORIZONTAL);
 
-        String[] wallpaperNames={"Azul noche","Ártico","Violeta","Negro puro"};
-        int[] wallpaperColors={0xFF182B50,0xFF124653,0xFF39205B,0xFF080B12};
+        String[] wallpaperNames={"Midnight Blue","Violet Night","Obsidian","Arctic"};
+        int[] wallpaperValues={0,2,3,1};
+        int[] wallpaperColors={0xFF182B50,0xFF39205B,0xFF080B12,0xFF124653};
         int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
+        int selectedTheme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
 
         for(int i=0;i<wallpaperNames.length;i++){
-            final int wallpaperIndex=i;
-            final boolean selected=selectedWallpaper==i;
+            final int wallpaperIndex=wallpaperValues[i];
+            final int themeIndex=i==0?0:(i==1?1:(i==2?2:3));
+            final boolean selected=selectedTheme==themeIndex;
 
             LinearLayout choice=new LinearLayout(this);
             choice.setOrientation(LinearLayout.HORIZONTAL);
             choice.setGravity(Gravity.CENTER_VERTICAL);
             choice.setPadding(dp(13),0,dp(13),0);
-            choice.setBackground(shape(selected?0xFF233B61:0xAA141D2E,
-                    selected?BLUE:0x263B5F91,16));
+            int accent=themeIndex==0?0xFF559BFF:(themeIndex==1?0xFFB47BFF:(themeIndex==2?0xFF9B9DAA:0xFF48C7D8));
+            choice.setBackground(shape(selected?0xFF233044:0xAA141D2E,
+                    selected?accent:0x263B5F91,16));
             choice.setFocusable(true);
             choice.setFocusableInTouchMode(true);
             choice.setOnFocusChangeListener((v,focused)->{
-                v.setBackground(shape(focused?PANEL_FOCUS:(selected?0xFF233B61:0xAA141D2E),
-                        focused||selected?BLUE:0x263B5F91,16));
+                v.setBackground(shape(focused?getThemeFocus():(selected?0xFF233044:0xAA141D2E),
+                        focused||selected?getThemeAccent():0x263B5F91,16));
                 v.setScaleX(focused?1.035f:1f);
                 v.setScaleY(focused?1.035f:1f);
             });
@@ -1127,7 +1175,9 @@ public class TvActivity extends Activity {
 
             choice.setContentDescription(wallpaperNames[i]+(selected?", seleccionado":", seleccionar"));
             choice.setOnClickListener(v->{
-                getSharedPreferences(PREFS,0).edit().putInt("wallpaper",wallpaperIndex).apply();
+                getSharedPreferences(PREFS,0).edit()
+                        .putInt("wallpaper",wallpaperIndex)
+                        .putInt(PREF_THEME,themeIndex).apply();
                 buildSettings();
                 Toast.makeText(this,"Fondo aplicado",Toast.LENGTH_SHORT).show();
             });
@@ -1140,6 +1190,20 @@ public class TvActivity extends Activity {
         wallpaperScroll.addView(wallpapers,new HorizontalScrollView.LayoutParams(-2,-2));
         LinearLayout.LayoutParams wallpaperScrollLp=new LinearLayout.LayoutParams(-1,dp(72));
         content.addView(wallpaperScroll,wallpaperScrollLp);
+
+        addSettingsSectionTitle(content,"EFECTOS");
+        boolean motionEnabled=getSharedPreferences(PREFS,0).getBoolean(PREF_MOTION,false);
+        addSettingsAction(content,"✧",
+                motionEnabled?"Movimiento ambiental: ACTIVADO":"Movimiento ambiental: DESACTIVADO",
+                motionEnabled?"Brillo sutil de baja frecuencia, sin vídeo ni fondos pesados":"Fondo estático para consumir lo mínimo",
+                ()->{
+                    getSharedPreferences(PREFS,0).edit().putBoolean(PREF_MOTION,!motionEnabled).apply();
+                    buildSettings();
+                });
+
+        addSettingsAction(content,"↺","Restablecer presentación",
+                "Reinicia favoritos y personalización; no borra otras aplicaciones",
+                ()->confirmPresentationReset());
 
         addSettingsSectionTitle(content,"ACTUALIZACIONES");
         addSettingsAction(content,"⇧","Buscar actualizaciones",
@@ -1429,22 +1493,26 @@ public class TvActivity extends Activity {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private RadialGradient blueGlow,purpleGlow;
         private final int wallpaper;
+        private final int theme;
+        private final boolean motion;
         TvAmbientBackground(android.content.Context context){
             super(context);setLayerType(View.LAYER_TYPE_HARDWARE,null);
-            wallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",0);
+            wallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",2);
+            theme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
+            motion=getSharedPreferences(PREFS,0).getBoolean(PREF_MOTION,false);
         }
         @Override protected void onSizeChanged(int w,int h,int oldW,int oldH){
             super.onSizeChanged(w,h,oldW,oldH);
             float radius=Math.max(w,h)*0.66f;
             int[] blueColors;
             int[] purpleColors;
-            if(wallpaper==1){
+            if(theme==3){
                 blueColors=new int[]{0x6642C8D8,0x20203F49,0x00070A12};
                 purpleColors=new int[]{0x443B8FAD,0x18203642,0x00070A12};
-            }else if(wallpaper==2){
+            }else if(theme==1){
                 blueColors=new int[]{0x665D55D8,0x20251B49,0x00070A12};
-                purpleColors=new int[]{0x665F35B8,0x20241642,0x00070A12};
-            }else if(wallpaper==3){
+                purpleColors=new int[]{0x775F35B8,0x30241642,0x00070A12};
+            }else if(theme==2){
                 blueColors=new int[]{0x180D1628,0x080D1422,0x00070A12};
                 purpleColors=new int[]{0x140D1020,0x080D1020,0x00070A12};
             }else{
@@ -1464,17 +1532,20 @@ public class TvActivity extends Activity {
             // Motoroll signature: luminous diagonal ribbons and a quiet M watermark.
             paint.setShader(null); paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(dp(3)); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
-            paint.setColor(wallpaper==1?0x164DD8E8:(wallpaper==2?0x1B9A6BFF:(wallpaper==3?0x084F82B8:0x123F9EFF)));
+            int pulse=motion?(int)(Math.abs(Math.sin(android.os.SystemClock.uptimeMillis()/5200.0))*5):0;
+            paint.setAlpha(255-pulse);
+            paint.setColor(theme==3?0x164DD8E8:(theme==1?0x1B9A6BFF:(theme==2?0x084F82B8:0x123F9EFF)));
             float w=getWidth(), h=getHeight();
             canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
             canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
-            paint.setStrokeWidth(dp(7)); paint.setColor(wallpaper==1?0x0D54D6E8:(wallpaper==2?0x126D61FF:(wallpaper==3?0x065B8DFF:0x0D65B8FF)));
+            paint.setStrokeWidth(dp(7)); paint.setColor(theme==3?0x0D54D6E8:(theme==1?0x126D61FF:(theme==2?0x065B8DFF:0x0D65B8FF)));
             android.graphics.Path mark=new android.graphics.Path();
             mark.moveTo(w*0.73f,h*0.39f); mark.lineTo(w*0.81f,h*0.57f);
             mark.lineTo(w*0.89f,h*0.43f); mark.lineTo(w*0.97f,h*0.57f);
             mark.lineTo(w*1.05f,h*0.39f); canvas.drawPath(mark,paint);
             paint.setStyle(Paint.Style.FILL); paint.setColor(0x125B8DFF);
             canvas.drawRect(0,h*0.82f,w,h,paint);
+            if(motion)postInvalidateDelayed(1200);
         }
     }
 }
