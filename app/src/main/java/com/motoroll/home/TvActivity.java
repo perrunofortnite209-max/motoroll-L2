@@ -205,7 +205,7 @@ public class TvActivity extends Activity {
     }
 
     private void buildWelcome(){
-        prepareRoot(); addBrandHeader("TU TELEVISOR, TU ESPACIO");
+        prepareRoot(); addBrandHeader("BIENVENIDO");
         View spacer=new View(this); root.addView(spacer,new LinearLayout.LayoutParams(1,0,1));
         TextView eyebrow=text("UN INICIO A TU MEDIDA",13,BLUE,true); eyebrow.setLetterSpacing(.14f);
         root.addView(eyebrow,new LinearLayout.LayoutParams(-1,dp(30)));
