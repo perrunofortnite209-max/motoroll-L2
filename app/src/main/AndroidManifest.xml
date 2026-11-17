@@ -38,6 +38,7 @@
         </activity>
         <activity
             android:name="com.motoroll.home.TvActivity"
+            android:label="Motoroll TV"
             android:exported="true"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden">
