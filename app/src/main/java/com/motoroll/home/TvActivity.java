@@ -15,6 +15,8 @@ import android.os.Looper;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
@@ -1135,7 +1137,7 @@ public class TvActivity extends Activity {
                     getSharedPreferences(PREFS,0).edit().putInt("icon_scale",(iconScale+1)%3).apply();
                     buildSettings();
                 });
-        TextView wallpaperDescription=text("Elige el ambiente que más te guste.",13,MUTED,false);
+        TextView wallpaperDescription=text("Fondos panorámicos estilo Pixel, con paisajes y color cinematográfico.",13,MUTED,false);
         content.addView(wallpaperDescription,new LinearLayout.LayoutParams(-1,dp(28)));
 
         HorizontalScrollView wallpaperScroll=new HorizontalScrollView(this);
@@ -1145,15 +1147,16 @@ public class TvActivity extends Activity {
         LinearLayout wallpapers=new LinearLayout(this);
         wallpapers.setOrientation(LinearLayout.HORIZONTAL);
 
-        String[] wallpaperNames={"Midnight Blue","Violet Night","Obsidian","Arctic"};
-        int[] wallpaperValues={0,2,3,1};
-        int[] wallpaperColors={0xFF182B50,0xFF39205B,0xFF080B12,0xFF124653};
-        int selectedTheme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
+        String[] wallpaperNames={"Pixel Coast","Alpine Lake","Aurora","Desert Dusk","Violet Flow","Midnight Sky"};
+        int[] wallpaperValues={0,1,2,3,4,5};
+        int[] wallpaperThemes={0,0,1,2,1,3};
+        int[] wallpaperColors={0xFF235B86,0xFF254B69,0xFF334C83,0xFF9B6544,0xFF56317D,0xFF263A66};
+        int selectedWallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",2);
 
         for(int i=0;i<wallpaperNames.length;i++){
             final int wallpaperIndex=wallpaperValues[i];
-            final int themeIndex=i==0?0:(i==1?1:(i==2?2:3));
-            final boolean selected=selectedTheme==themeIndex;
+            final int themeIndex=wallpaperThemes[i];
+            final boolean selected=selectedWallpaper==wallpaperIndex;
 
             LinearLayout choice=new LinearLayout(this);
             choice.setOrientation(LinearLayout.HORIZONTAL);
@@ -1206,8 +1209,8 @@ public class TvActivity extends Activity {
         addSettingsSectionTitle(content,"EFECTOS");
         boolean motionEnabled=getSharedPreferences(PREFS,0).getBoolean(PREF_MOTION,false);
         addSettingsAction(content,"✧",
-                motionEnabled?"Movimiento ambiental: ACTIVADO":"Movimiento ambiental: DESACTIVADO",
-                motionEnabled?"Brillo sutil de baja frecuencia, sin vídeo ni fondos pesados":"Fondo estático para consumir lo mínimo",
+                motionEnabled?"Fondo animado: ACTIVADO":"Fondo animado: DESACTIVADO",
+                motionEnabled?"Movimiento panorámico lento y suave, sin vídeo":"Activa el movimiento cinematográfico o deja el fondo estático",
                 ()->{
                     getSharedPreferences(PREFS,0).edit().putBoolean(PREF_MOTION,!motionEnabled).apply();
                     buildSettings();
@@ -1502,16 +1505,62 @@ public class TvActivity extends Activity {
 
     /** Same AMOLED blue/purple ambient wallpaper language as Motoroll Home, composed for widescreen TV. */
     private final class TvAmbientBackground extends View {
-        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private static final String[] WALLPAPER_URLS={
+                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1920&h=1080&q=78",
+                "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1920&h=1080&q=78",
+                "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&h=1080&q=78",
+                "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1920&h=1080&q=78",
+                "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1920&h=1080&q=78",
+                "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1920&h=1080&q=78"
+        };
+        private static final Bitmap[] WALLPAPER_CACHE=new Bitmap[WALLPAPER_URLS.length];
+        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private RadialGradient blueGlow,purpleGlow;
+        private Bitmap wallpaperBitmap;
         private final int wallpaper;
         private final int theme;
         private final boolean motion;
+        private boolean wallpaperLoadStarted;
         TvAmbientBackground(android.content.Context context){
             super(context);setLayerType(View.LAYER_TYPE_HARDWARE,null);
-            wallpaper=getSharedPreferences(PREFS,0).getInt("wallpaper",2);
+            wallpaper=Math.max(0,Math.min(WALLPAPER_URLS.length-1,
+                    getSharedPreferences(PREFS,0).getInt("wallpaper",2)));
             theme=getSharedPreferences(PREFS,0).getInt(PREF_THEME,1);
             motion=getSharedPreferences(PREFS,0).getBoolean(PREF_MOTION,false);
+            synchronized(WALLPAPER_CACHE){wallpaperBitmap=WALLPAPER_CACHE[wallpaper];}
+            if(wallpaperBitmap==null)loadWallpaper();
+        }
+        private void loadWallpaper(){
+            if(wallpaperLoadStarted)return;
+            wallpaperLoadStarted=true;
+            Thread loader=new Thread(()->{
+                Bitmap loaded=null;
+                java.net.HttpURLConnection connection=null;
+                try{
+                    URL url=new URL(WALLPAPER_URLS[wallpaper]);
+                    connection=(java.net.HttpURLConnection)url.openConnection();
+                    connection.setConnectTimeout(6500);
+                    connection.setReadTimeout(9000);
+                    connection.setInstanceFollowRedirects(true);
+                    connection.setRequestProperty("User-Agent","MotorollTV/1.3");
+                    connection.connect();
+                    if(connection.getResponseCode()==200){
+                        try(java.io.InputStream input=connection.getInputStream()){
+                            loaded=BitmapFactory.decodeStream(input);
+                        }
+                    }
+                }catch(Exception ignored){
+                }finally{
+                    if(connection!=null)connection.disconnect();
+                }
+                if(loaded!=null){
+                    synchronized(WALLPAPER_CACHE){WALLPAPER_CACHE[wallpaper]=loaded;}
+                    final Bitmap ready=loaded;
+                    post(()->{wallpaperBitmap=ready;invalidate();});
+                }
+            },"Motoroll-Wallpaper");
+            loader.setDaemon(true);
+            loader.start();
         }
         @Override protected void onSizeChanged(int w,int h,int oldW,int oldH){
             super.onSizeChanged(w,h,oldW,oldH);
@@ -1537,27 +1586,50 @@ public class TvActivity extends Activity {
                     new float[]{0f,0.58f,1f},Shader.TileMode.CLAMP);
         }
         @Override protected void onDraw(Canvas canvas){
+            float w=getWidth(),h=getHeight();
             canvas.drawColor(BG);
-            if(blueGlow!=null){paint.setShader(blueGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
-            if(purpleGlow!=null){paint.setShader(purpleGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
-            paint.setShader(null);
-            // Motoroll signature: luminous diagonal ribbons and a quiet M watermark.
-            paint.setShader(null); paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(3)); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
-            int pulse=motion?(int)(Math.abs(Math.sin(android.os.SystemClock.uptimeMillis()/5200.0))*5):0;
-            paint.setColor(theme==3?0x164DD8E8:(theme==1?0x1B9A6BFF:(theme==2?0x084F82B8:0x123F9EFF)));
-            paint.setAlpha(255-pulse);
-            float w=getWidth(), h=getHeight();
-            canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
-            canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
-            paint.setStrokeWidth(dp(7)); paint.setColor(theme==3?0x0D54D6E8:(theme==1?0x126D61FF:(theme==2?0x065B8DFF:0x0D65B8FF)));
-            android.graphics.Path mark=new android.graphics.Path();
-            mark.moveTo(w*0.73f,h*0.39f); mark.lineTo(w*0.81f,h*0.57f);
-            mark.lineTo(w*0.89f,h*0.43f); mark.lineTo(w*0.97f,h*0.57f);
-            mark.lineTo(w*1.05f,h*0.39f); canvas.drawPath(mark,paint);
-            paint.setStyle(Paint.Style.FILL); paint.setColor(0x125B8DFF);
-            canvas.drawRect(0,h*0.82f,w,h,paint);
-            if(motion)postInvalidateDelayed(1200);
+            if(wallpaperBitmap!=null){
+                int save=canvas.save();
+                float scale=Math.max(w/wallpaperBitmap.getWidth(),h/wallpaperBitmap.getHeight());
+                if(motion){
+                    double phase=android.os.SystemClock.uptimeMillis()/26000.0;
+                    scale*=1.045f+(float)(Math.sin(phase)*0.018f);
+                    float dx=(float)Math.sin(phase*0.72)*w*0.018f;
+                    float dy=(float)Math.cos(phase*0.61)*h*0.012f;
+                    canvas.translate(dx,dy);
+                }
+                float dw=wallpaperBitmap.getWidth()*scale;
+                float dh=wallpaperBitmap.getHeight()*scale;
+                float left=(w-dw)/2f,top=(h-dh)/2f;
+                if(motion){left-=w*0.012f;top-=h*0.008f;}
+                canvas.drawBitmap(wallpaperBitmap,null,
+                        new android.graphics.RectF(left,top,left+dw,top+dh),paint);
+                canvas.restoreToCount(save);
+                paint.setShader(new android.graphics.LinearGradient(0,0,0,h,
+                        new int[]{0x26050912,0x3D080B16,0xC9080B16},
+                        new float[]{0f,0.48f,1f},Shader.TileMode.CLAMP));
+                canvas.drawRect(0,0,w,h,paint);
+                paint.setShader(null);
+                if(motion)postInvalidateDelayed(50);
+            }else{
+                if(blueGlow!=null){paint.setShader(blueGlow);canvas.drawRect(0,0,w,h,paint);}
+                if(purpleGlow!=null){paint.setShader(purpleGlow);canvas.drawRect(0,0,w,h,paint);}
+                paint.setShader(null);
+                // Premium gradient fallback remains available if the TV is offline.
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dp(3));
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                paint.setStrokeJoin(Paint.Join.ROUND);
+                paint.setColor(theme==3?0x164DD8E8:(theme==1?0x1B9A6BFF:(theme==2?0x084F82B8:0x123F9EFF)));
+                float pulse=motion?(float)(Math.sin(android.os.SystemClock.uptimeMillis()/5200.0)*0.5+0.5):0f;
+                paint.setAlpha(220+(int)(pulse*35));
+                canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
+                canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(0x125B8DFF);
+                canvas.drawRect(0,h*0.82f,w,h,paint);
+                if(motion)postInvalidateDelayed(50);
+            }
         }
     }
 }
