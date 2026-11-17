@@ -236,59 +236,57 @@ public class TvActivity extends Activity {
     private void buildHome(){
         showingSettings=false;
         prepareRoot();
-
-        // FLauncher-inspired: clean app grid, clear groups, no oversized content rails.
         LinearLayout header=new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand=text("MOTOROLL",24,TEXT,true);
-        brand.setLetterSpacing(.16f);
-        header.addView(brand,new LinearLayout.LayoutParams(0,dp(52),1));
-
+        LinearLayout brandGroup=new LinearLayout(this);
+        brandGroup.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView logo=new ImageView(this);
+        logo.setImageResource(R.drawable.ic_motoroll);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        brandGroup.addView(logo,new LinearLayout.LayoutParams(dp(56),dp(56)));
+        LinearLayout brandText=new LinearLayout(this);
+        brandText.setOrientation(LinearLayout.VERTICAL);
+        TextView brand=text("MOTOROLL",24,TEXT,true); brand.setLetterSpacing(.20f);
+        TextView edition=text("TV  /  MOTOROLL OS",10,BLUE,true); edition.setLetterSpacing(.18f);
+        brandText.addView(brand); brandText.addView(edition);
+        LinearLayout.LayoutParams brandTextLp=new LinearLayout.LayoutParams(-2,-2);
+        brandTextLp.leftMargin=dp(13); brandGroup.addView(brandText,brandTextLp);
+        header.addView(brandGroup,new LinearLayout.LayoutParams(0,dp(60),1));
         TextClock clock=new TextClock(this);
         clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
-        clock.setTextColor(TEXT); clock.setTextSize(19);
+        clock.setTextColor(TEXT); clock.setTextSize(20); clock.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         header.addView(clock);
-
         TextView androidSettings=button("⚙");
         androidSettings.setContentDescription("Configuración de Android TV");
-        androidSettings.setTextSize(20);
-        androidSettings.setBackground(shape(PANEL,0,12));
-        LinearLayout.LayoutParams sysLp=new LinearLayout.LayoutParams(dp(50),dp(46));
-        sysLp.leftMargin=dp(14); header.addView(androidSettings,sysLp);
+        androidSettings.setTextSize(20); androidSettings.setBackground(shape(0xCC17243A,0,14));
+        LinearLayout.LayoutParams sysLp=new LinearLayout.LayoutParams(dp(52),dp(48));
+        sysLp.leftMargin=dp(18); header.addView(androidSettings,sysLp);
         androidSettings.setOnClickListener(v->openAndroidTvSettings());
-
-        TextView menu=button("☰  MENÚ");
-        menu.setTextSize(13);
-        menu.setBackground(shape(PANEL_FOCUS,BLUE,12));
-        LinearLayout.LayoutParams menuLp=new LinearLayout.LayoutParams(dp(132),dp(46));
-        menuLp.leftMargin=dp(9); header.addView(menu,menuLp);
+        TextView menu=button("☰  MENÚ"); menu.setTextSize(13);
+        menu.setBackground(shape(0xCC17243A,BLUE,14));
+        LinearLayout.LayoutParams menuLp=new LinearLayout.LayoutParams(dp(136),dp(48));
+        menuLp.leftMargin=dp(10); header.addView(menu,menuLp);
         menu.setOnClickListener(v->buildSettings());
-        root.addView(header,new LinearLayout.LayoutParams(-1,dp(60)));
-
-        TextView subtitle=text("TUS APLICACIONES",11,BLUE,true);
-        subtitle.setLetterSpacing(.18f);
-        root.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(30)));
-
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(68)));
+        LinearLayout sectionHeader=new LinearLayout(this); sectionHeader.setGravity(Gravity.CENTER_VERTICAL);
+        TextView subtitle=text("TU ESPACIO DIGITAL",12,BLUE,true); subtitle.setLetterSpacing(.20f);
+        sectionHeader.addView(subtitle,new LinearLayout.LayoutParams(0,dp(34),1));
+        TextView count=text(allApps.size()+" APPS",10,MUTED,true); count.setLetterSpacing(.12f);
+        sectionHeader.addView(count); root.addView(sectionHeader,new LinearLayout.LayoutParams(-1,dp(38)));
         ScrollView contentScroll=new ScrollView(this);
-        contentScroll.setVerticalScrollBarEnabled(false);
-        contentScroll.setClipToPadding(false);
+        contentScroll.setVerticalScrollBarEnabled(false); contentScroll.setClipToPadding(false);
         contentScroll.setFocusable(false);
         contentScroll.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
-        LinearLayout sections=new LinearLayout(this);
-        sections.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout sections=new LinearLayout(this); sections.setOrientation(LinearLayout.VERTICAL);
         contentScroll.addView(sections,new ScrollView.LayoutParams(-1,-2));
         root.addView(contentScroll,new LinearLayout.LayoutParams(-1,0,1));
-
         View firstApp=addFlauncherSection(sections,"APLICACIONES",false);
         addFlauncherSection(sections,"ENTRETENIMIENTO",true);
-
-        status=text(allApps.size()+" aplicaciones instaladas",11,MUTED,false);
+        status=text("LISTO PARA DISFRUTAR",10,MUTED,true); status.setLetterSpacing(.12f);
         root.addView(status,new LinearLayout.LayoutParams(-1,dp(22)));
-        TextView tip=text("OK para abrir  ·  Mantén OK para opciones  ·  MENÚ para ajustes",10,0xFF7F91B1,false);
-        root.addView(tip,new LinearLayout.LayoutParams(-1,dp(22)));
-
-        if(firstApp!=null)focusWhenReady(firstApp);
-        else focusWhenReady(menu);
+        TextView tip=text("OK ABRIR   •   MANTENER OK: OPCIONES   •   MENÚ: AJUSTES",9,0xFF8295B8,false);
+        tip.setLetterSpacing(.06f); root.addView(tip,new LinearLayout.LayoutParams(-1,dp(20)));
+        if(firstApp!=null)focusWhenReady(firstApp); else focusWhenReady(menu);
     }
 
     private View addFlauncherSection(LinearLayout parent,String heading,boolean entertainment){
@@ -749,9 +747,20 @@ public class TvActivity extends Activity {
             if(blueGlow!=null){paint.setShader(blueGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
             if(purpleGlow!=null){paint.setShader(purpleGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
             paint.setShader(null);
-            // Subtle lower horizon glow gives the TV home a spacious, cinematic depth.
-            paint.setColor(0x0D5B8DFF);
-            canvas.drawRect(0,getHeight()*0.78f,getWidth(),getHeight(),paint);
+            // Motoroll signature: luminous diagonal ribbons and a quiet M watermark.
+            paint.setShader(null); paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(3)); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
+            paint.setColor(0x123F9EFF);
+            float w=getWidth(), h=getHeight();
+            canvas.drawLine(w*0.70f,h*0.02f,w*0.98f,h*0.30f,paint);
+            canvas.drawLine(w*0.76f,0,w,h*0.24f,paint);
+            paint.setStrokeWidth(dp(7)); paint.setColor(0x0D65B8FF);
+            android.graphics.Path mark=new android.graphics.Path();
+            mark.moveTo(w*0.73f,h*0.39f); mark.lineTo(w*0.81f,h*0.57f);
+            mark.lineTo(w*0.89f,h*0.43f); mark.lineTo(w*0.97f,h*0.57f);
+            mark.lineTo(w*1.05f,h*0.39f); canvas.drawPath(mark,paint);
+            paint.setStyle(Paint.Style.FILL); paint.setColor(0x125B8DFF);
+            canvas.drawRect(0,h*0.82f,w,h,paint);
         }
     }
 }
