@@ -108,7 +108,7 @@ public class TvActivity extends Activity {
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         IntentFilter updateFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateReceiver, updateFilter, Context.RECEIVER_NOT_EXPORTED);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateReceiver, updateFilter, Context.RECEIVER_EXPORTED);
         else registerReceiver(updateReceiver, updateFilter);
         updateReceiverRegistered = true;
         getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG);
