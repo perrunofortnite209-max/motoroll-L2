@@ -11,7 +11,7 @@
     </queries>
     <application
         android:allowBackup="false"
-        android:label="Motoroll TV"
+        android:label="Motoroll"
         android:icon="@drawable/ic_motoroll"
         android:roundIcon="@drawable/ic_motoroll"
         android:theme="@style/AppTheme"
