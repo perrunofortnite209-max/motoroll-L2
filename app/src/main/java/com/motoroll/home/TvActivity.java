@@ -7,6 +7,11 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
+import android.graphics.Canvas;
+import android.widget.FrameLayout;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -82,9 +87,13 @@ public class TvActivity extends Activity {
         });
     }
     private void prepareRoot(){
+        FrameLayout screen=new FrameLayout(this);
+        screen.addView(new TvAmbientBackground(this),new FrameLayout.LayoutParams(-1,-1));
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(54),dp(28),dp(54),dp(22)); root.setBackgroundColor(BG);
-        root.setFocusable(false); setContentView(root);
+        root.setPadding(dp(54),dp(28),dp(54),dp(22)); root.setBackgroundColor(Color.TRANSPARENT);
+        root.setFocusable(false);
+        screen.addView(root,new FrameLayout.LayoutParams(-1,-1));
+        setContentView(screen);
     }
     private TextView button(String caption){
         TextView b=text(caption,16,TEXT,true); b.setGravity(Gravity.CENTER);
@@ -277,6 +286,32 @@ public class TvActivity extends Activity {
             String message=resultCode==RESULT_OK?"Motoroll TV quedó como launcher predeterminado":"No se cambió el launcher predeterminado";
             Toast.makeText(this,message,Toast.LENGTH_LONG).show();
             buildHome();
+        }
+    }
+
+    /** Same AMOLED blue/purple ambient wallpaper language as Motoroll Home, composed for widescreen TV. */
+    private final class TvAmbientBackground extends View {
+        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private RadialGradient blueGlow,purpleGlow;
+        TvAmbientBackground(android.content.Context context){super(context);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
+        @Override protected void onSizeChanged(int w,int h,int oldW,int oldH){
+            super.onSizeChanged(w,h,oldW,oldH);
+            float radius=Math.max(w,h)*0.66f;
+            blueGlow=new RadialGradient(w*0.91f,h*0.12f,radius,
+                    new int[]{0x59365FAF,0x20192349,0x00070A12},
+                    new float[]{0f,0.56f,1f},Shader.TileMode.CLAMP);
+            purpleGlow=new RadialGradient(w*0.08f,h*0.88f,radius*0.88f,
+                    new int[]{0x4D693AAB,0x1A24163F,0x00070A12},
+                    new float[]{0f,0.58f,1f},Shader.TileMode.CLAMP);
+        }
+        @Override protected void onDraw(Canvas canvas){
+            canvas.drawColor(BG);
+            if(blueGlow!=null){paint.setShader(blueGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
+            if(purpleGlow!=null){paint.setShader(purpleGlow);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
+            paint.setShader(null);
+            // Subtle lower horizon glow gives the TV home a spacious, cinematic depth.
+            paint.setColor(0x0D5B8DFF);
+            canvas.drawRect(0,getHeight()*0.78f,getWidth(),getHeight(),paint);
         }
     }
 }
