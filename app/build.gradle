@@ -7,6 +7,7 @@ def motorollStorePassword = System.getenv('MOTOROLL_KEYSTORE_PASSWORD')
 def motorollKeyAlias = System.getenv('MOTOROLL_KEY_ALIAS')
 def motorollKeyPassword = System.getenv('MOTOROLL_KEY_PASSWORD')
 
+// Motoroll TV Personal Edition
 android {
     namespace 'com.motoroll.home'
     compileSdk 36
